@@ -13,34 +13,51 @@ import {
   getDBGalleryImages,
   saveDBGalleryImages,
 } from "@/lib/cloudStorage";
+import { isAdminRequest, isValidAdminPin } from "@/lib/adminAuth";
 
-export async function GET() {
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+const NO_STORE = { "Cache-Control": "no-store" };
+
+/**
+ * GET público: solo lo que la web pública necesita (horarios, tarifas,
+ * galería). Con credenciales de admin devuelve además los datos sensibles
+ * (datos bancarios, fichas clínicas, gift cards).
+ */
+export async function GET(req: NextRequest) {
   try {
-    const [
-      config,
-      bankConfig,
-      planPrices,
-      clinicalProfiles,
-      giftCards,
-      galleryImages,
-    ] = await Promise.all([
+    const [config, planPrices, galleryImages] = await Promise.all([
       getDBScheduleConfig(),
-      getDBBankConfig(),
       getDBPlanPrices(),
-      getDBClinicalProfiles(),
-      getDBGiftCards(),
       getDBGalleryImages(),
     ]);
 
-    return NextResponse.json({
-      ok: true,
-      config,
-      bankConfig,
-      planPrices,
-      clinicalProfiles,
-      giftCards,
-      galleryImages,
-    });
+    if (!isAdminRequest(req)) {
+      return NextResponse.json(
+        { ok: true, config, planPrices, galleryImages },
+        { headers: NO_STORE },
+      );
+    }
+
+    const [bankConfig, clinicalProfiles, giftCards] = await Promise.all([
+      getDBBankConfig(),
+      getDBClinicalProfiles(),
+      getDBGiftCards(),
+    ]);
+
+    return NextResponse.json(
+      {
+        ok: true,
+        config,
+        bankConfig,
+        planPrices,
+        clinicalProfiles,
+        giftCards,
+        galleryImages,
+      },
+      { headers: NO_STORE },
+    );
   } catch (err: unknown) {
     return NextResponse.json(
       {
@@ -48,7 +65,7 @@ export async function GET() {
         error:
           err instanceof Error ? err.message : "Error al leer la configuración",
       },
-      { status: 500 },
+      { status: 500, headers: NO_STORE },
     );
   }
 }
@@ -66,18 +83,12 @@ export async function POST(req: NextRequest) {
       pin,
     } = body;
 
-    // Validación básica de PIN si se requiere
-    const ADMIN_PIN = process.env.ADMIN_PIN || "pravilo2026";
-    if (
-      pin &&
-      pin !== ADMIN_PIN &&
-      pin !== "pravilo" &&
-      pin !== "1234" &&
-      pin !== "2026"
-    ) {
+    // Escrituras de configuración: SIEMPRE requieren credenciales de admin
+    // (header x-admin-pin, o `pin` en el body para compatibilidad).
+    if (!isAdminRequest(req) && !isValidAdminPin(pin)) {
       return NextResponse.json(
-        { ok: false, error: "PIN de administrador incorrecto." },
-        { status: 401 },
+        { ok: false, error: "No autorizado. Volvé a iniciar sesión en el panel." },
+        { status: 401, headers: NO_STORE },
       );
     }
 

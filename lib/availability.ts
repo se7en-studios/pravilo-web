@@ -2,6 +2,14 @@ import { WHATSAPP_NUMBER } from "./constants";
 import { Plan } from "./plans";
 import type { Booking } from "./bookings";
 
+/**
+ * Datos mínimos de ocupación de un turno (sin información personal del
+ * cliente). Es lo que expone el endpoint público /api/availability y lo único
+ * que necesitan los cálculos de disponibilidad. Un Booking completo también
+ * es asignable a este tipo.
+ */
+export type SlotOccupancy = Pick<Booking, "date" | "time" | "status">;
+
 export interface DaySchedule {
   dayIndex: number; // 0 = Domingo, 1 = Lunes, ..., 6 = Sábado
   dayName: string;
@@ -131,7 +139,7 @@ export function isDateAvailable(
 
 export function getBookedSlotsForDate(
   dateStr: string,
-  bookings: Booking[] = [],
+  bookings: SlotOccupancy[] = [],
 ): Set<string> {
   const occupied = new Set<string>();
   bookings.forEach((b) => {
@@ -146,7 +154,7 @@ export function getBookedSlotsForDate(
 export function isDateFullyBooked(
   date: Date,
   config: ScheduleConfig = DEFAULT_SCHEDULE_CONFIG,
-  bookings: Booking[] = [],
+  bookings: SlotOccupancy[] = [],
 ): boolean {
   if (!isDateAvailable(date, config)) return true;
   const iso = formatDateISO(date);
@@ -161,7 +169,7 @@ export function isDateFullyBooked(
 export function getAvailableSlots(
   date: Date,
   config: ScheduleConfig = DEFAULT_SCHEDULE_CONFIG,
-  bookings: Booking[] = [],
+  bookings: SlotOccupancy[] = [],
 ): string[] {
   if (!isDateAvailable(date, config)) return [];
   const iso = formatDateISO(date);
@@ -176,7 +184,7 @@ export function getAvailableSlots(
 export function getAllSlotsWithStatus(
   date: Date,
   config: ScheduleConfig = DEFAULT_SCHEDULE_CONFIG,
-  bookings: Booking[] = [],
+  bookings: SlotOccupancy[] = [],
 ): { slot: string; isAvailable: boolean; reason?: string }[] {
   if (!isDateAvailable(date, config)) return [];
   const iso = formatDateISO(date);

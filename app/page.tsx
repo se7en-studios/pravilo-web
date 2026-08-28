@@ -657,7 +657,11 @@ export default function Home() {
             </RevealOnScroll>
 
             {(() => {
-              const serverGallery = getServerGalleryImages();
+              // Falla de I/O transitoria en el storage → galería por defecto
+              let serverGallery: ReturnType<typeof getServerGalleryImages> = [];
+              try {
+                serverGallery = getServerGalleryImages();
+              } catch {}
               const activeGallery = (serverGallery && serverGallery.length > 0 ? serverGallery : DEFAULT_GALLERY_IMAGES)
                 .filter((img) => img.visible !== false)
                 .map((img) => ({ src: img.src, alt: img.alt }));

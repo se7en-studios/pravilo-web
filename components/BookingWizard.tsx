@@ -13,8 +13,8 @@ import {
   getAllSlotsWithStatus,
   isDateAvailable,
   isDateFullyBooked,
+  type SlotOccupancy,
 } from "@/lib/availability";
-import { Booking, LOCAL_STORAGE_BOOKINGS_KEY } from "@/lib/bookings";
 
 export default function BookingWizard({
   className = "",
@@ -33,30 +33,19 @@ export default function BookingWizard({
   const [customerNotes, setCustomerNotes] = useState("");
   const [currentMonth, setCurrentMonth] = useState<Date>(new Date());
   const [config, setConfig] = useState<ScheduleConfig>(DEFAULT_SCHEDULE_CONFIG);
-  const [bookings, setBookings] = useState<Booking[]>([]);
+  // Ocupación de horarios (solo fecha/hora/estado — sin datos de otros clientes)
+  const [bookings, setBookings] = useState<SlotOccupancy[]>([]);
   const [mounted, setMounted] = useState(false);
 
   const [planPrices, setPlanPrices] = useState<{ [key: string]: string }>({});
 
   const loadBookings = () => {
-    // 1. From localStorage
-    try {
-      const stored = localStorage.getItem(LOCAL_STORAGE_BOOKINGS_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed)) {
-          setBookings(parsed);
-        }
-      }
-    } catch {}
-
-    // 2. From API
-    fetch("/api/admin/bookings")
+    // Ocupación de slots desde el endpoint público (sin PII de clientes)
+    fetch("/api/availability")
       .then((res) => res.json())
       .then((data) => {
-        if (data?.ok && Array.isArray(data.bookings)) {
-          setBookings(data.bookings);
-          localStorage.setItem(LOCAL_STORAGE_BOOKINGS_KEY, JSON.stringify(data.bookings));
+        if (data?.ok && Array.isArray(data.occupied)) {
+          setBookings(data.occupied);
         }
       })
       .catch(() => {});
@@ -151,9 +140,7 @@ export default function BookingWizard({
 
     // Registrar el turno en el panel / sistema
     try {
-      const newBookingObj: Booking = {
-        id: `bk_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
-        createdAt: new Date().toISOString(),
+      const bookingPayload = {
         planTitle: selectedPlan.title,
         planPrice: selectedPlan.price,
         date: dateStr,
@@ -163,34 +150,32 @@ export default function BookingWizard({
         customerNotes: customerNotes.trim(),
         status: "pendiente",
         paymentStatus: "pendiente",
-        totalSessions: selectedPlan.title.includes("8") ? 8 : selectedPlan.title.includes("12") ? 12 : 1,
-        sessionsCompleted: 0,
       };
 
-      // Save to localStorage immediately
-      try {
-        const stored = localStorage.getItem(LOCAL_STORAGE_BOOKINGS_KEY);
-        const list = stored ? JSON.parse(stored) : [];
-        const updatedList = [newBookingObj, ...list];
-        localStorage.setItem(LOCAL_STORAGE_BOOKINGS_KEY, JSON.stringify(updatedList));
-        localStorage.setItem("pravilo_last_sync_timestamp", String(Date.now()));
-      } catch {}
-
-      // Broadcast instantáneo a otras pestañas (Panel Admin)
-      try {
-        if (typeof window !== "undefined" && "BroadcastChannel" in window) {
-          const bc = new BroadcastChannel("pravilo_sync_channel");
-          bc.postMessage({ type: "NEW_BOOKING", booking: newBookingObj });
-          setTimeout(() => bc.close(), 1000);
-        }
-      } catch {}
-
-      // Save to API
+      // Registrar en el servidor (el WhatsApp que sigue es el canal principal de
+      // la reserva, por eso no bloqueamos al cliente si esta llamada falla).
       fetch("/api/admin/bookings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(newBookingObj),
-      }).catch(() => {});
+        body: JSON.stringify(bookingPayload),
+      })
+        .then((res) => res.json().catch(() => null))
+        .then((data) => {
+          if (!data?.ok) {
+            console.warn("No se pudo registrar la reserva en el panel:", data?.error);
+          }
+          loadBookings(); // refrescar ocupación de horarios
+        })
+        .catch((err) => console.warn("No se pudo registrar la reserva en el panel:", err));
+
+      // Aviso instantáneo a otras pestañas (Panel Admin)
+      try {
+        if (typeof window !== "undefined" && "BroadcastChannel" in window) {
+          const bc = new BroadcastChannel("pravilo_sync_channel");
+          bc.postMessage({ type: "NEW_BOOKING" });
+          setTimeout(() => bc.close(), 1000);
+        }
+      } catch {}
     } catch {
       // ignore
     }

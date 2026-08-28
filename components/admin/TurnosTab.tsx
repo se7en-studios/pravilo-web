@@ -18,6 +18,8 @@ interface TurnosTabProps {
   onSaveInternalNote: (id: string, note: string) => void;
   onIncrementSession: (id: string, current: number, total: number) => void;
   onDeleteBooking: (id: string) => void;
+  /** IDs de turnos con eliminación en curso (deshabilita el botón). */
+  deletingIds?: Set<string>;
   onOpenReceiptModal: (booking: Booking) => void;
   onOpenStudentCrm: (phone: string, name: string) => void;
   onEditBooking: (booking: Booking) => void;
@@ -32,6 +34,7 @@ export function TurnosTab({
   onSaveInternalNote,
   onIncrementSession,
   onDeleteBooking,
+  deletingIds,
   onOpenReceiptModal,
   onOpenStudentCrm,
   onEditBooking,
@@ -703,11 +706,12 @@ export function TurnosTab({
                   {/* Delete */}
                   <button
                     onClick={() => onDeleteBooking(b.id)}
-                    className="p-2 rounded-lg bg-surface-raised hover:bg-rose-500/20 border border-border hover:border-rose-500/40 text-muted hover:text-rose-400 transition-colors"
+                    disabled={deletingIds?.has(b.id)}
+                    className="p-2 rounded-lg bg-surface-raised hover:bg-rose-500/20 border border-border hover:border-rose-500/40 text-muted hover:text-rose-400 transition-colors disabled:opacity-40 disabled:cursor-wait"
                     title="Eliminar registro"
                     aria-label="Eliminar turno"
                   >
-                    <TrashIcon className="w-3.5 h-3.5" />
+                    {deletingIds?.has(b.id) ? "…" : <TrashIcon className="w-3.5 h-3.5" />}
                   </button>
                 </div>
               </div>
@@ -836,9 +840,10 @@ export function TurnosTab({
                     )}
                     <button
                       onClick={() => onDeleteBooking(b.id)}
-                      className="p-1 rounded bg-rose-500/20 text-rose-300 hover:bg-rose-500/30 text-[11px]"
+                      disabled={deletingIds?.has(b.id)}
+                      className="p-1 rounded bg-rose-500/20 text-rose-300 hover:bg-rose-500/30 text-[11px] disabled:opacity-40 disabled:cursor-wait"
                     >
-                      Borrar
+                      {deletingIds?.has(b.id) ? "Eliminando…" : "Borrar"}
                     </button>
                   </td>
                 </tr>

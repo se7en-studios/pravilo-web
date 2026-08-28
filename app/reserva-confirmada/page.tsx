@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { whatsappLink, LOCATION, WHATSAPP_NUMBER } from "@/lib/constants";
 import { getDBBankConfig } from "@/lib/cloudStorage";
+import { DEFAULT_BANK_CONFIG } from "@/lib/bookings";
 
 export default async function ReservaConfirmada({
   searchParams,
@@ -15,7 +16,8 @@ export default async function ReservaConfirmada({
   }>;
 }) {
   const params = await searchParams;
-  const bankConfig = await getDBBankConfig();
+  // Falla de I/O transitoria en el storage → datos bancarios por defecto
+  const bankConfig = await getDBBankConfig().catch(() => ({ ...DEFAULT_BANK_CONFIG }));
   const plan = params.plan || "1 Sesión Individual";
   const price = params.price || "$35.000";
   const date = params.date || "";

@@ -11,13 +11,242 @@ import { DEFAULT_SCHEDULE_CONFIG, ScheduleConfig } from "./availability";
 import { GalleryImageItem, DEFAULT_GALLERY_IMAGES } from "./gallery";
 
 const DATA_DIR = path.join(process.cwd(), "data");
-const BOOKINGS_FILE = path.join(DATA_DIR, "bookings.json");
-const CONFIG_FILE = path.join(DATA_DIR, "config.json");
-const BANK_FILE = path.join(DATA_DIR, "bank.json");
-const PRICES_FILE = path.join(DATA_DIR, "prices.json");
-const CLINICAL_FILE = path.join(DATA_DIR, "clinical.json");
-const GIFTCARDS_FILE = path.join(DATA_DIR, "giftcards.json");
 
+function ensureDataDir(): void {
+  try {
+    if (!fs.existsSync(DATA_DIR)) {
+      fs.mkdirSync(DATA_DIR, { recursive: true });
+    }
+  } catch (err) {
+    console.error("[serverStorage] Error creating data directory:", err);
+  }
+}
+
+/**
+ * Store JSON respaldado por archivo (fallback local cuando Firestore no está
+ * configurado, y cache espejo cuando sí lo está), con:
+ * - Relectura automática cuando el archivo cambia en disco (mtime/size), para
+ *   que múltiples copias del módulo (route handlers, server components, dev
+ *   HMR) nunca sirvan datos viejos.
+ * - Escritura atómica (tmp + rename) con un reintento directo (OneDrive/
+ *   Windows lockea archivos intermitentemente).
+ * - La cache en memoria SOLO se actualiza si la escritura a disco fue exitosa:
+ *   si `write` devuelve false, el estado servido sigue siendo el real.
+ */
+interface JsonStore<T> {
+  read(): T;
+  write(value: T): boolean;
+}
+
+function createJsonStore<T>(options: {
+  file: string;
+  /** Valor inicial cuando el archivo todavía no existe (primer arranque). */
+  seed: () => T;
+  /** Valor a servir si el archivo existe pero está corrupto (se respalda antes). */
+  onCorrupt?: () => T;
+  /** Validación estructural del JSON parseado. */
+  validate: (parsed: unknown) => boolean;
+  /** Persistir el seed a disco cuando el archivo no existe. */
+  persistSeed?: boolean;
+}): JsonStore<T> {
+  const filePath = path.join(DATA_DIR, options.file);
+  let cache: T | null = null;
+  let cachedMtimeMs = -1;
+  let cachedSize = -1;
+
+  const write = (value: T): boolean => {
+    ensureDataDir();
+    const tmpPath = `${filePath}.tmp`;
+    const payload = JSON.stringify(value, null, 2);
+
+    let ok = false;
+    try {
+      fs.writeFileSync(tmpPath, payload, "utf-8");
+      fs.renameSync(tmpPath, filePath);
+      ok = true;
+    } catch (err) {
+      // Reintento directo: rename puede fallar con EPERM en Windows/OneDrive.
+      try {
+        fs.writeFileSync(filePath, payload, "utf-8");
+        ok = true;
+      } catch (err2) {
+        console.error(`[serverStorage] No se pudo escribir ${options.file}:`, err2 ?? err);
+      }
+      try {
+        if (fs.existsSync(tmpPath)) fs.unlinkSync(tmpPath);
+      } catch {}
+    }
+
+    if (ok) {
+      cache = value;
+      try {
+        const stat = fs.statSync(filePath);
+        cachedMtimeMs = stat.mtimeMs;
+        cachedSize = stat.size;
+      } catch {
+        // Forzar relectura en el próximo read.
+        cachedMtimeMs = -1;
+        cachedSize = -1;
+      }
+    }
+    return ok;
+  };
+
+  /** Espera sincrónica breve (para reintentar lecturas con el archivo lockeado). */
+  const sleepSync = (ms: number) => {
+    try {
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+    } catch {}
+  };
+
+  const read = (): T => {
+    let stat: fs.Stats | null = null;
+    let statError: unknown = null;
+    try {
+      stat = fs.statSync(filePath);
+    } catch (err) {
+      stat = null;
+      statError = err;
+    }
+
+    if (stat && cache !== null && stat.mtimeMs === cachedMtimeMs && stat.size === cachedSize) {
+      return cache;
+    }
+
+    // Archivo genuinamente inexistente: primer arranque → seed.
+    // (Cualquier otro error de stat —p.ej. EPERM por lock de OneDrive— NO es
+    // "no existe": se trata como error de I/O más abajo.)
+    const isMissing =
+      stat === null && (statError as NodeJS.ErrnoException | null)?.code === "ENOENT";
+    if (isMissing) {
+      const initial = options.seed();
+      if (options.persistSeed) {
+        write(initial);
+      }
+      cache = initial;
+      return initial;
+    }
+
+    // Leer el contenido, con reintentos: OneDrive/Windows lockea archivos
+    // intermitentemente y una falla de I/O NO significa que el archivo esté
+    // corrupto ni vacío.
+    let raw: string | null = null;
+    let ioError: unknown = statError;
+    for (let attempt = 0; attempt < 3 && raw === null; attempt++) {
+      if (attempt > 0) sleepSync(40 * attempt);
+      try {
+        raw = fs.readFileSync(filePath, "utf-8");
+      } catch (err) {
+        ioError = err;
+      }
+    }
+
+    if (raw === null) {
+      // Error de I/O persistente. Con cache válida, servirla; sin cache, LANZAR:
+      // jamás inventar un estado vacío que una escritura posterior haría permanente.
+      if (cache !== null) {
+        console.error(`[serverStorage] ${options.file}: error de I/O, sirviendo cache:`, ioError);
+        return cache;
+      }
+      console.error(`[serverStorage] ${options.file}: error de I/O sin cache:`, ioError);
+      throw new Error(
+        `No se pudo leer el almacenamiento (${options.file}): archivo bloqueado o inaccesible. Reintentá en unos segundos.`,
+      );
+    }
+
+    try {
+      const parsed = JSON.parse(raw);
+      if (options.validate(parsed)) {
+        cache = parsed as T;
+        if (stat) {
+          cachedMtimeMs = stat.mtimeMs;
+          cachedSize = stat.size;
+        } else {
+          cachedMtimeMs = -1;
+          cachedSize = -1;
+        }
+        return cache;
+      }
+      throw new Error("El contenido no pasó la validación estructural");
+    } catch (err) {
+      // Corrupción real (se pudo LEER pero no parsear/validar): respaldar y
+      // servir el fallback. Nunca pisar el archivo original.
+      console.error(`[serverStorage] ${options.file} corrupto:`, err);
+      if (cache !== null) return cache;
+      try {
+        fs.copyFileSync(filePath, `${filePath}.corrupt-${Date.now()}`);
+      } catch {}
+      const fallback = (options.onCorrupt ?? options.seed)();
+      cache = fallback;
+      if (stat) {
+        cachedMtimeMs = stat.mtimeMs;
+        cachedSize = stat.size;
+      }
+      return fallback;
+    }
+  };
+
+  return { read, write };
+}
+
+function isPlainObject(v: unknown): boolean {
+  return typeof v === "object" && v !== null && !Array.isArray(v);
+}
+
+// ----------------- BOOKINGS -----------------
+// ponytail: sin archivo y sin cache significa "todavía no hay datos locales",
+// NO "sembrar turnos de muestra". El auto-seed acá resucitaba turnos
+// fabricados cada vez que Firestore no estaba disponible y este fallback
+// entraba en juego. Los turnos de muestra se cargan solo a pedido
+// (botón "Cargar turnos" → resetWithSamples).
+const bookingsStore = createJsonStore<Booking[]>({
+  file: "bookings.json",
+  seed: () => [],
+  validate: (parsed) => Array.isArray(parsed),
+  persistSeed: false,
+});
+
+export function getServerBookings(): Booking[] {
+  return bookingsStore.read();
+}
+
+export function saveServerBookings(bookings: Booking[]): boolean {
+  return bookingsStore.write(bookings);
+}
+
+// ----------------- SCHEDULE CONFIG -----------------
+const configStore = createJsonStore<ScheduleConfig>({
+  file: "config.json",
+  seed: () => ({ ...DEFAULT_SCHEDULE_CONFIG }),
+  validate: (parsed) => isPlainObject(parsed) && Array.isArray((parsed as ScheduleConfig).days),
+  persistSeed: true,
+});
+
+export function getServerScheduleConfig(): ScheduleConfig {
+  return configStore.read();
+}
+
+export function saveServerScheduleConfig(config: ScheduleConfig): boolean {
+  return configStore.write(config);
+}
+
+// ----------------- BANK CONFIG -----------------
+const bankStore = createJsonStore<BankConfig>({
+  file: "bank.json",
+  seed: () => ({ ...DEFAULT_BANK_CONFIG }),
+  validate: isPlainObject,
+  persistSeed: true,
+});
+
+export function getServerBankConfig(): BankConfig {
+  return bankStore.read();
+}
+
+export function saveServerBankConfig(bank: BankConfig): boolean {
+  return bankStore.write(bank);
+}
+
+// ----------------- PLAN PRICES CONFIG -----------------
 export const DEFAULT_PLAN_PRICES = {
   individual: "$35.000",
   pack8: "$240.000",
@@ -27,299 +256,67 @@ export const DEFAULT_PLAN_PRICES = {
   pack12Desc: "$25.000 por sesión · Vigencia: 3 meses.",
 };
 
-// In-memory memory fallback caches (for read-only serverless filesystems if any)
-let cachedBookings: Booking[] | null = null;
-let isBookingsLoaded = false;
-let cachedConfig: ScheduleConfig = { ...DEFAULT_SCHEDULE_CONFIG };
-let cachedBank: BankConfig = { ...DEFAULT_BANK_CONFIG };
-let cachedPrices: Record<string, string | undefined> = {
-  ...DEFAULT_PLAN_PRICES,
-};
-let cachedClinical: Record<string, StudentClinicalProfile> = {};
-let cachedGiftCards: GiftCard[] = [];
+const pricesStore = createJsonStore<Record<string, string | undefined>>({
+  file: "prices.json",
+  seed: () => ({ ...DEFAULT_PLAN_PRICES }),
+  validate: isPlainObject,
+  persistSeed: true,
+});
 
-function ensureDataDir() {
-  try {
-    if (!fs.existsSync(DATA_DIR)) {
-      fs.mkdirSync(DATA_DIR, { recursive: true });
-    }
-  } catch (err) {
-    console.error("Error creating data directory:", err);
-  }
-}
-
-// ----------------- BOOKINGS -----------------
-export function getServerBookings(): Booking[] {
-  if (isBookingsLoaded && cachedBookings !== null) {
-    return cachedBookings;
-  }
-
-  ensureDataDir();
-
-  try {
-    if (fs.existsSync(BOOKINGS_FILE)) {
-      const raw = fs.readFileSync(BOOKINGS_FILE, "utf-8");
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) {
-        cachedBookings = parsed;
-        isBookingsLoaded = true;
-        return cachedBookings;
-      }
-    }
-  } catch (err) {
-    console.error("Error reading bookings file:", err);
-  }
-
-  // ponytail: no file and no cache means "no local data yet", not "seed fake
-  // bookings". Auto-seeding here used to resurrect fabricated sample turnos
-  // any time Firestore was unreachable and this fs fallback kicked in.
-  cachedBookings = [];
-  isBookingsLoaded = true;
-  return cachedBookings;
-}
-
-export function saveServerBookings(bookings: Booking[]): boolean {
-  cachedBookings = bookings;
-  isBookingsLoaded = true;
-  ensureDataDir();
-
-  try {
-    fs.writeFileSync(BOOKINGS_FILE, JSON.stringify(bookings, null, 2), "utf-8");
-    return true;
-  } catch (err) {
-    console.error("Error saving bookings to file:", err);
-    return false;
-  }
-}
-
-// ----------------- SCHEDULE CONFIG -----------------
-export function getServerScheduleConfig(): ScheduleConfig {
-  ensureDataDir();
-
-  try {
-    if (fs.existsSync(CONFIG_FILE)) {
-      const raw = fs.readFileSync(CONFIG_FILE, "utf-8");
-      const parsed = JSON.parse(raw);
-      if (parsed && Array.isArray(parsed.days)) {
-        cachedConfig = parsed;
-        return parsed;
-      }
-    }
-  } catch (err) {
-    console.error("Error reading config file:", err);
-  }
-
-  if (cachedConfig) {
-    return cachedConfig;
-  }
-
-  cachedConfig = { ...DEFAULT_SCHEDULE_CONFIG };
-  saveServerScheduleConfig(cachedConfig);
-  return cachedConfig;
-}
-
-export function saveServerScheduleConfig(config: ScheduleConfig): boolean {
-  cachedConfig = config;
-  ensureDataDir();
-
-  try {
-    fs.writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2), "utf-8");
-    return true;
-  } catch (err) {
-    console.error("Error saving config to file:", err);
-    return false;
-  }
-}
-
-// ----------------- BANK CONFIG -----------------
-export function getServerBankConfig(): BankConfig {
-  ensureDataDir();
-
-  try {
-    if (fs.existsSync(BANK_FILE)) {
-      const raw = fs.readFileSync(BANK_FILE, "utf-8");
-      const parsed = JSON.parse(raw);
-      if (parsed && parsed.alias) {
-        cachedBank = parsed;
-        return parsed;
-      }
-    }
-  } catch (err) {
-    console.error("Error reading bank file:", err);
-  }
-
-  if (cachedBank) {
-    return cachedBank;
-  }
-
-  cachedBank = { ...DEFAULT_BANK_CONFIG };
-  saveServerBankConfig(cachedBank);
-  return cachedBank;
-}
-
-export function saveServerBankConfig(bank: BankConfig): boolean {
-  cachedBank = bank;
-  ensureDataDir();
-
-  try {
-    fs.writeFileSync(BANK_FILE, JSON.stringify(bank, null, 2), "utf-8");
-    return true;
-  } catch (err) {
-    console.error("Error saving bank to file:", err);
-    return false;
-  }
-}
-
-// ----------------- PLAN PRICES CONFIG -----------------
 export function getServerPlanPrices(): Record<string, string | undefined> {
-  ensureDataDir();
-
-  try {
-    if (fs.existsSync(PRICES_FILE)) {
-      const raw = fs.readFileSync(PRICES_FILE, "utf-8");
-      const parsed = JSON.parse(raw);
-      if (parsed && parsed.individual) {
-        cachedPrices = parsed;
-        return parsed;
-      }
-    }
-  } catch (err) {
-    console.error("Error reading prices file:", err);
-  }
-
-  if (cachedPrices) {
-    return cachedPrices;
-  }
-
-  cachedPrices = { ...DEFAULT_PLAN_PRICES };
-  saveServerPlanPrices(cachedPrices);
-  return cachedPrices;
+  return pricesStore.read();
 }
 
-export function saveServerPlanPrices(
-  prices: Record<string, string | undefined>,
-): boolean {
-  cachedPrices = prices;
-  ensureDataDir();
-
-  try {
-    fs.writeFileSync(PRICES_FILE, JSON.stringify(prices, null, 2), "utf-8");
-    return true;
-  } catch (err) {
-    console.error("Error saving prices to file:", err);
-    return false;
-  }
+export function saveServerPlanPrices(prices: Record<string, string | undefined>): boolean {
+  return pricesStore.write(prices);
 }
 
 // ----------------- CLINICAL PROFILES -----------------
+const clinicalStore = createJsonStore<Record<string, StudentClinicalProfile>>({
+  file: "clinical.json",
+  seed: () => ({}),
+  validate: isPlainObject,
+  persistSeed: false,
+});
+
 export function getServerClinicalProfiles(): Record<string, StudentClinicalProfile> {
-  ensureDataDir();
-
-  try {
-    if (fs.existsSync(CLINICAL_FILE)) {
-      const raw = fs.readFileSync(CLINICAL_FILE, "utf-8");
-      const parsed = JSON.parse(raw);
-      if (parsed && typeof parsed === "object") {
-        cachedClinical = parsed;
-        return parsed;
-      }
-    }
-  } catch (err) {
-    console.error("Error reading clinical file:", err);
-  }
-
-  return cachedClinical || {};
+  return clinicalStore.read();
 }
 
 export function saveServerClinicalProfiles(
   profiles: Record<string, StudentClinicalProfile>,
 ): boolean {
-  cachedClinical = profiles;
-  ensureDataDir();
-
-  try {
-    fs.writeFileSync(CLINICAL_FILE, JSON.stringify(profiles, null, 2), "utf-8");
-    return true;
-  } catch (err) {
-    console.error("Error saving clinical to file:", err);
-    return false;
-  }
+  return clinicalStore.write(profiles);
 }
 
 // ----------------- GIFT CARDS -----------------
+const giftCardsStore = createJsonStore<GiftCard[]>({
+  file: "giftcards.json",
+  seed: () => [],
+  validate: (parsed) => Array.isArray(parsed),
+  persistSeed: false,
+});
+
 export function getServerGiftCards(): GiftCard[] {
-  ensureDataDir();
-
-  try {
-    if (fs.existsSync(GIFTCARDS_FILE)) {
-      const raw = fs.readFileSync(GIFTCARDS_FILE, "utf-8");
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) {
-        cachedGiftCards = parsed;
-        return parsed;
-      }
-    }
-  } catch (err) {
-    console.error("Error reading giftcards file:", err);
-  }
-
-  return cachedGiftCards || [];
+  return giftCardsStore.read();
 }
 
 export function saveServerGiftCards(cards: GiftCard[]): boolean {
-  cachedGiftCards = cards;
-  ensureDataDir();
-
-  try {
-    fs.writeFileSync(GIFTCARDS_FILE, JSON.stringify(cards, null, 2), "utf-8");
-    return true;
-  } catch (err) {
-    console.error("Error saving giftcards to file:", err);
-    return false;
-  }
+  return giftCardsStore.write(cards);
 }
 
-const GALLERY_FILE = path.join(DATA_DIR, "gallery.json");
-let cachedGallery: GalleryImageItem[] | null = null;
-let isGalleryLoaded = false;
+// ----------------- GALLERY -----------------
+const galleryStore = createJsonStore<GalleryImageItem[]>({
+  file: "gallery.json",
+  seed: () => [...DEFAULT_GALLERY_IMAGES],
+  validate: (parsed) => Array.isArray(parsed),
+  persistSeed: true,
+});
 
 export function getServerGalleryImages(): GalleryImageItem[] {
-  if (isGalleryLoaded && cachedGallery) {
-    return cachedGallery;
-  }
-
-  ensureDataDir();
-
-  try {
-    if (fs.existsSync(GALLERY_FILE)) {
-      const raw = fs.readFileSync(GALLERY_FILE, "utf-8");
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        cachedGallery = parsed;
-        isGalleryLoaded = true;
-        return cachedGallery;
-      }
-    }
-  } catch (err) {
-    console.error("Error reading gallery file:", err);
-  }
-
-  cachedGallery = [...DEFAULT_GALLERY_IMAGES];
-  isGalleryLoaded = true;
-  saveServerGalleryImages(cachedGallery);
-  return cachedGallery;
+  return galleryStore.read();
 }
 
 export function saveServerGalleryImages(images: GalleryImageItem[]): boolean {
-  cachedGallery = images;
-  isGalleryLoaded = true;
-  ensureDataDir();
-
-  try {
-    fs.writeFileSync(GALLERY_FILE, JSON.stringify(images, null, 2), "utf-8");
-    return true;
-  } catch (err) {
-    console.error("Error saving gallery to file:", err);
-    return false;
-  }
+  return galleryStore.write(images);
 }

@@ -13,7 +13,7 @@ interface ManualBookingModalProps {
   onSaveBooking: (
     newBooking: Partial<Booking>,
     isEditing?: boolean,
-  ) => Promise<void> | void;
+  ) => Promise<boolean> | boolean | void;
   bookingToEdit?: Booking | null;
   initialDate?: string;
   initialSlot?: string;
@@ -65,6 +65,7 @@ export function ManualBookingModal({
   const [customerNotes, setCustomerNotes] = useState("");
   const [internalNotes, setInternalNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   // Sync state when modal opens or props change
   useEffect(() => {
@@ -217,8 +218,17 @@ export function ManualBookingModal({
       sessionsCompleted: Math.min(sessionsCompleted, calculatedTotalSessions),
     };
 
-    await onSaveBooking(payload, isEditing);
+    setSubmitError(null);
+    const result = await onSaveBooking(payload, isEditing);
     setIsSubmitting(false);
+
+    // Cerrar únicamente si el servidor confirmó el guardado
+    if (result === false) {
+      setSubmitError(
+        "El turno no se pudo guardar en el servidor. Revisá el error y reintentá.",
+      );
+      return;
+    }
     onClose();
   };
 
@@ -597,6 +607,13 @@ export function ManualBookingModal({
           </div>
 
           {/* Actions */}
+          {/* Error de guardado */}
+          {submitError && (
+            <p className="text-xs text-rose-400 font-medium bg-rose-500/10 border border-rose-500/30 rounded-xl px-3 py-2">
+              ✕ {submitError}
+            </p>
+          )}
+
           <div className="pt-4 border-t border-border flex items-center justify-end gap-3">
             <button
               type="button"

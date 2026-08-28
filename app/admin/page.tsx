@@ -100,6 +100,48 @@ export default function AdminPage() {
   const knownBookingIdsRef = useRef<Set<string>>(new Set());
   const isInitialLoadRef = useRef(true);
 
+  // --- Autenticación server-side y estado de sincronización ---
+  const [isVerifyingPin, setIsVerifyingPin] = useState(false);
+  const [serverOffline, setServerOffline] = useState(false);
+  // Turnos con eliminación en curso (para deshabilitar el botón y evitar doble click)
+  const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
+  // Mutaciones en vuelo: mientras haya alguna, el polling no pisa el estado local
+  const pendingMutationsRef = useRef(0);
+  // PIN vigente para las cabeceras de las APIs (ref para evitar closures viejos)
+  const pinRef = useRef("");
+
+  useEffect(() => {
+    pinRef.current = pin;
+  }, [pin]);
+
+  /** fetch con las credenciales de admin (header x-admin-pin). */
+  const adminFetch = (input: RequestInfo, init: RequestInit = {}) =>
+    fetch(input, {
+      ...init,
+      headers: { ...(init.headers || {}), "x-admin-pin": pinRef.current },
+    });
+
+  /**
+   * fetch de MUTACIONES: igual que adminFetch pero registra la operación en
+   * vuelo para que el polling de 3s no pise la actualización optimista.
+   */
+  const adminMutate = async (input: RequestInfo, init: RequestInit = {}) => {
+    pendingMutationsRef.current++;
+    try {
+      return await adminFetch(input, init);
+    } finally {
+      pendingMutationsRef.current--;
+    }
+  };
+
+  const forceLogout = (message?: string) => {
+    setIsAuthenticated(false);
+    setPin("");
+    pinRef.current = "";
+    localStorage.removeItem("pravilo_admin_auth");
+    if (message) setPinError(message);
+  };
+
   // Live Toast Notification State
   const [liveNotification, setLiveNotification] = useState<{
     id: string;
@@ -265,10 +307,19 @@ export default function AdminPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const fetchBookings = (isSilent = false) => {
-    fetch("/api/admin/bookings")
-      .then((res) => res.json())
+    // No pisar el estado local mientras hay una mutación (delete/patch) en vuelo
+    if (isSilent && pendingMutationsRef.current > 0) return;
+    adminFetch("/api/admin/bookings")
+      .then((res) => {
+        if (res.status === 401) {
+          forceLogout("La sesión expiró o el PIN cambió. Ingresá de nuevo.");
+          throw new Error("unauthorized");
+        }
+        return res.json();
+      })
       .then((data) => {
         if (data?.ok && Array.isArray(data.bookings)) {
+          setServerOffline(false);
           const incoming: Booking[] = data.bookings;
 
           // Detect new real bookings on live refresh (only if already loaded and created recently)
@@ -294,24 +345,29 @@ export default function AdminPage() {
             LOCAL_STORAGE_BOOKINGS_KEY,
             JSON.stringify(incoming),
           );
-        } else if (!isSilent) {
-          const stored = localStorage.getItem(LOCAL_STORAGE_BOOKINGS_KEY);
-          if (stored) {
-            try {
-              const parsed = JSON.parse(stored);
-              if (Array.isArray(parsed)) {
-                knownBookingIdsRef.current = new Set(
-                  parsed.map((b: Booking) => b.id),
-                );
-                isInitialLoadRef.current = false;
-                setBookings(parsed);
-                return;
-              }
-            } catch {}
+        } else {
+          setServerOffline(true);
+          if (!isSilent) {
+            const stored = localStorage.getItem(LOCAL_STORAGE_BOOKINGS_KEY);
+            if (stored) {
+              try {
+                const parsed = JSON.parse(stored);
+                if (Array.isArray(parsed)) {
+                  knownBookingIdsRef.current = new Set(
+                    parsed.map((b: Booking) => b.id),
+                  );
+                  isInitialLoadRef.current = false;
+                  setBookings(parsed);
+                  return;
+                }
+              } catch {}
+            }
           }
         }
       })
-      .catch(() => {
+      .catch((err) => {
+        if (err instanceof Error && err.message === "unauthorized") return;
+        setServerOffline(true);
         if (!isSilent) {
           const stored = localStorage.getItem(LOCAL_STORAGE_BOOKINGS_KEY);
           if (stored) {
@@ -389,10 +445,34 @@ export default function AdminPage() {
 
   // Load config, bank & bookings on mount
   useEffect(() => {
+    // Sesión guardada: verificar el PIN contra el servidor antes de confiar en él
     const savedPin = localStorage.getItem("pravilo_admin_auth");
     if (savedPin) {
-      setPin(savedPin);
-      setIsAuthenticated(true);
+      fetch("/api/admin/auth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pin: savedPin }),
+      })
+        .then((res) => res.json().then((data) => ({ res, data })))
+        .then(({ res, data }) => {
+          if (res.ok && data?.ok) {
+            pinRef.current = savedPin;
+            setPin(savedPin);
+            setIsAuthenticated(true);
+          } else if (res.status === 401) {
+            localStorage.removeItem("pravilo_admin_auth");
+          } else {
+            // Servidor caído: no bloquear el acceso guardado, se re-verifica al operar
+            pinRef.current = savedPin;
+            setPin(savedPin);
+            setIsAuthenticated(true);
+          }
+        })
+        .catch(() => {
+          pinRef.current = savedPin;
+          setPin(savedPin);
+          setIsAuthenticated(true);
+        });
     }
 
     const savedAudio = localStorage.getItem("pravilo_audio_alerts");
@@ -444,7 +524,26 @@ export default function AdminPage() {
       } catch {}
     }
 
-    fetch("/api/admin/config")
+    // Initial load from localStorage
+    const storedBookings = localStorage.getItem(LOCAL_STORAGE_BOOKINGS_KEY);
+    if (storedBookings) {
+      try {
+        const parsed = JSON.parse(storedBookings);
+        if (Array.isArray(parsed)) {
+          knownBookingIdsRef.current = new Set(
+            parsed.map((b: Booking) => b.id),
+          );
+          setBookings(parsed);
+        }
+      } catch {}
+    }
+  }, []);
+
+  // Carga de datos del servidor: recién cuando hay sesión de admin válida
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    adminFetch("/api/admin/config")
       .then((res) => res.json())
       .then((data) => {
         if (data?.ok) {
@@ -505,23 +604,10 @@ export default function AdminPage() {
       })
       .catch(() => {});
 
-    // Initial load from localStorage
-    const storedBookings = localStorage.getItem(LOCAL_STORAGE_BOOKINGS_KEY);
-    if (storedBookings) {
-      try {
-        const parsed = JSON.parse(storedBookings);
-        if (Array.isArray(parsed)) {
-          knownBookingIdsRef.current = new Set(
-            parsed.map((b: Booking) => b.id),
-          );
-          setBookings(parsed);
-        }
-      } catch {}
-    }
-
     // Canonical server fetch
     fetchBookings(false);
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated]);
 
   const handleReloadSamples = async () => {
     if (
@@ -532,7 +618,7 @@ export default function AdminPage() {
       return;
 
     try {
-      const res = await fetch("/api/admin/bookings", {
+      const res = await adminMutate("/api/admin/bookings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ resetWithSamples: true }),
@@ -565,26 +651,37 @@ export default function AdminPage() {
     }
   };
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (
-      pin === "pravilo2026" ||
-      pin === "pravilo" ||
-      pin === "1234" ||
-      pin === "2026"
-    ) {
-      setIsAuthenticated(true);
-      setPinError("");
-      localStorage.setItem("pravilo_admin_auth", pin);
-    } else {
-      setPinError("PIN incorrecto. Probá con 'pravilo2026' o '1234'.");
+    const candidate = pin.trim();
+    if (!candidate || isVerifyingPin) return;
+
+    setIsVerifyingPin(true);
+    setPinError("");
+    try {
+      const res = await fetch("/api/admin/auth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pin: candidate }),
+      });
+      const data = await res.json().catch(() => null);
+      if (res.ok && data?.ok) {
+        pinRef.current = candidate;
+        setPin(candidate);
+        setIsAuthenticated(true);
+        localStorage.setItem("pravilo_admin_auth", candidate);
+      } else {
+        setPinError(data?.error || "PIN incorrecto.");
+      }
+    } catch {
+      setPinError("No se pudo verificar el PIN: el servidor no responde.");
+    } finally {
+      setIsVerifyingPin(false);
     }
   };
 
   const handleLogout = () => {
-    setIsAuthenticated(false);
-    setPin("");
-    localStorage.removeItem("pravilo_admin_auth");
+    forceLogout();
   };
 
   // ponytail: shared rollback so a failed PATCH/DELETE never leaves the UI
@@ -609,7 +706,7 @@ export default function AdminPage() {
     broadcastBookingsUpdate(updated);
 
     try {
-      const res = await fetch("/api/admin/bookings", {
+      const res = await adminMutate("/api/admin/bookings", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id, status: newStatus }),
@@ -645,7 +742,7 @@ export default function AdminPage() {
     broadcastBookingsUpdate(updated);
 
     try {
-      const res = await fetch("/api/admin/bookings", {
+      const res = await adminMutate("/api/admin/bookings", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id, paymentStatus }),
@@ -685,7 +782,7 @@ export default function AdminPage() {
     broadcastBookingsUpdate(updated);
 
     try {
-      const res = await fetch("/api/admin/bookings", {
+      const res = await adminMutate("/api/admin/bookings", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id, ...updates }),
@@ -715,7 +812,7 @@ export default function AdminPage() {
     broadcastBookingsUpdate(updated);
 
     try {
-      const res = await fetch("/api/admin/bookings", {
+      const res = await adminMutate("/api/admin/bookings", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id, internalNotes: note }),
@@ -755,7 +852,7 @@ export default function AdminPage() {
     broadcastBookingsUpdate(updated);
 
     try {
-      const res = await fetch("/api/admin/bookings", {
+      const res = await adminMutate("/api/admin/bookings", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -783,8 +880,10 @@ export default function AdminPage() {
   };
 
   const handleDeleteBooking = async (id: string) => {
+    if (deletingIds.has(id)) return; // ya hay una eliminación en curso
     if (!confirm("¿Eliminar este registro de turno?")) return;
 
+    setDeletingIds((prevSet) => new Set(prevSet).add(id));
     const previous = bookings;
     // Optimistic instant update
     const updated = bookings.filter((b) => b.id !== id);
@@ -800,7 +899,7 @@ export default function AdminPage() {
     }
 
     try {
-      const res = await fetch(
+      const res = await adminMutate(
         `/api/admin/bookings?id=${encodeURIComponent(id)}`,
         {
           method: "DELETE",
@@ -813,6 +912,10 @@ export default function AdminPage() {
         );
         setBookings(data.bookings);
         broadcastBookingsUpdate(data.bookings);
+      } else if (res.status === 404) {
+        // El turno ya no existía en el servidor: no revertir, refrescar la lista
+        fetchBookings(false);
+        alert("Ese turno ya había sido eliminado. Se actualizó la lista.");
       } else {
         revertBookingsAndAlert(
           previous,
@@ -824,13 +927,19 @@ export default function AdminPage() {
         previous,
         "Error de conexión al eliminar el turno. Intentá de nuevo.",
       );
+    } finally {
+      setDeletingIds((prevSet) => {
+        const next = new Set(prevSet);
+        next.delete(id);
+        return next;
+      });
     }
   };
 
   const handleSaveBooking = async (
     payload: Partial<Booking>,
     isEditing?: boolean,
-  ) => {
+  ): Promise<boolean> => {
     if (isEditing && payload.id) {
       const previous = bookings;
       // Optimistic instant update
@@ -841,7 +950,7 @@ export default function AdminPage() {
       broadcastBookingsUpdate(updated);
 
       try {
-        const res = await fetch("/api/admin/bookings", {
+        const res = await adminMutate("/api/admin/bookings", {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
@@ -850,36 +959,40 @@ export default function AdminPage() {
         if (data?.ok && data.bookings) {
           setBookings(data.bookings);
           broadcastBookingsUpdate(data.bookings);
-        } else {
-          revertBookingsAndAlert(
-            previous,
-            data?.error || "No se pudo guardar el turno.",
-          );
+          return true;
         }
+        revertBookingsAndAlert(
+          previous,
+          data?.error || "No se pudo guardar el turno.",
+        );
+        return false;
       } catch {
         revertBookingsAndAlert(
           previous,
           "Error de conexión al guardar el turno.",
         );
+        return false;
       }
-    } else {
-      // New booking creation
-      try {
-        const res = await fetch("/api/admin/bookings", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-        const data = await res.json();
-        if (data?.ok && data.bookings) {
-          setBookings(data.bookings);
-          broadcastBookingsUpdate(data.bookings);
-        } else {
-          fetchBookings(false);
-        }
-      } catch {
-        fetchBookings(false);
+    }
+
+    // New booking creation — el modal queda abierto si el servidor no confirmó
+    try {
+      const res = await adminMutate("/api/admin/bookings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (data?.ok && data.bookings) {
+        setBookings(data.bookings);
+        broadcastBookingsUpdate(data.bookings);
+        return true;
       }
+      alert(data?.error || "No se pudo agendar el turno en el servidor.");
+      return false;
+    } catch {
+      alert("Error de conexión: el turno NO se agendó.");
+      return false;
     }
   };
 
@@ -891,10 +1004,10 @@ export default function AdminPage() {
     failureMessage: string,
   ): Promise<boolean> => {
     try {
-      const res = await fetch("/api/admin/config", {
+      const res = await adminMutate("/api/admin/config", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...body, pin: pin || "pravilo2026" }),
+        body: JSON.stringify(body),
       });
       const data = await res.json().catch(() => null);
       if (data?.ok) return true;
@@ -1026,7 +1139,7 @@ export default function AdminPage() {
         "pravilo_gallery_images",
         JSON.stringify(updatedImages),
       );
-      const res = await fetch("/api/admin/config", {
+      const res = await adminMutate("/api/admin/config", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1060,7 +1173,7 @@ export default function AdminPage() {
             LOCAL_STORAGE_BOOKINGS_KEY,
             JSON.stringify(parsed.bookings),
           );
-          const bookingsRes = await fetch("/api/admin/bookings", {
+          const bookingsRes = await adminMutate("/api/admin/bookings", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ importAllBookings: parsed.bookings }),
@@ -1115,7 +1228,7 @@ export default function AdminPage() {
         }
 
         // Sync all config to server / Firestore
-        const configRes = await fetch("/api/admin/config", {
+        const configRes = await adminMutate("/api/admin/config", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -1124,7 +1237,6 @@ export default function AdminPage() {
             planPrices: parsed.planPrices,
             clinicalProfiles: parsed.clinicalProfiles,
             giftCards: parsed.giftCards,
-            pin: pin || "pravilo2026",
           }),
         }).catch(() => null);
         const configData = await configRes?.json().catch(() => null);
@@ -1206,9 +1318,10 @@ export default function AdminPage() {
 
             <button
               type="submit"
-              className="btn-shiny w-full py-3.5 rounded-xl bg-accent hover:opacity-95 text-accent-foreground font-condensed font-bold uppercase tracking-wider text-sm shadow-lg shadow-accent/25 active:scale-95 transition-all"
+              disabled={isVerifyingPin}
+              className="btn-shiny w-full py-3.5 rounded-xl bg-accent hover:opacity-95 text-accent-foreground font-condensed font-bold uppercase tracking-wider text-sm shadow-lg shadow-accent/25 active:scale-95 transition-all disabled:opacity-60 disabled:cursor-wait"
             >
-              Ingresar al Panel
+              {isVerifyingPin ? "Verificando…" : "Ingresar al Panel"}
             </button>
           </form>
 
@@ -1252,6 +1365,13 @@ export default function AdminPage() {
         fileInputRef={fileInputRef}
       />
 
+      {/* Aviso de servidor sin conexión */}
+      {serverOffline && (
+        <div className="bg-amber-500/10 border-b border-amber-500/30 text-amber-300 text-xs font-condensed uppercase tracking-wide text-center py-2 px-4">
+          ⚠ Sin conexión con el servidor: los datos pueden estar desactualizados y los cambios no se van a guardar.
+        </div>
+      )}
+
       {/* Main Content Area */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {activeTab === "turnos" && (
@@ -1263,6 +1383,7 @@ export default function AdminPage() {
             onSaveInternalNote={handleSaveInternalNote}
             onIncrementSession={handleIncrementSession}
             onDeleteBooking={handleDeleteBooking}
+            deletingIds={deletingIds}
             onOpenReceiptModal={(b) => setActiveReceiptBooking(b)}
             onOpenStudentCrm={(phone) => {
               setSelectedStudentPhone(phone);

@@ -1,17 +1,27 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
-import { Booking, buildGoogleReviewWhatsAppMessage } from "@/lib/bookings";
+import {
+  Booking,
+  MessageTemplatesConfig,
+  buildGoogleReviewWhatsAppText,
+} from "@/lib/bookings";
 import { GOOGLE_WRITE_REVIEW_URL } from "@/lib/constants";
 import { CopyIcon } from "./Icons";
+import { WhatsAppDraft, WhatsAppSendModal } from "./WhatsAppSendModal";
 
 interface FidelizacionTabProps {
   bookings: Booking[];
+  messageTemplates?: MessageTemplatesConfig;
 }
 
-export function FidelizacionTab({ bookings }: FidelizacionTabProps) {
+export function FidelizacionTab({
+  bookings,
+  messageTemplates,
+}: FidelizacionTabProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [copiedLink, setCopiedLink] = useState(false);
+  const [waDraft, setWaDraft] = useState<WhatsAppDraft | null>(null);
 
   const googleMapsReviewUrl = GOOGLE_WRITE_REVIEW_URL;
 
@@ -152,16 +162,11 @@ export function FidelizacionTab({ bookings }: FidelizacionTabProps) {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/60">
-                {filteredStudents.map((s) => {
-                  const waUrl = buildGoogleReviewWhatsAppMessage(
-                    s.name,
-                    s.phone,
-                  );
-                  return (
-                    <tr
-                      key={s.phone}
-                      className="hover:bg-surface-raised transition-colors"
-                    >
+                {filteredStudents.map((s) => (
+                  <tr
+                    key={s.phone}
+                    className="hover:bg-surface-raised transition-colors"
+                  >
                       <td className="py-3.5 px-3 font-condensed font-bold uppercase text-foreground text-sm">
                         {s.name}
                       </td>
@@ -179,23 +184,32 @@ export function FidelizacionTab({ bookings }: FidelizacionTabProps) {
                         {s.lastDate}
                       </td>
                       <td className="py-3.5 px-3 text-right">
-                        <a
-                          href={waUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 font-condensed font-bold uppercase tracking-wider text-xs transition-all shadow"
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setWaDraft({
+                              phone: s.phone,
+                              title: "⭐ Pedir Reseña en Google",
+                              text: buildGoogleReviewWhatsAppText(
+                                s.name,
+                                messageTemplates,
+                              ),
+                            })
+                          }
+                          className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 font-condensed font-bold uppercase tracking-wider text-xs transition-all shadow cursor-pointer"
                         >
                           <span>💬 Pedir Reseña</span>
-                        </a>
+                        </button>
                       </td>
                     </tr>
-                  );
-                })}
+                  ))}
               </tbody>
             </table>
           )}
         </div>
       </div>
+
+      <WhatsAppSendModal draft={waDraft} onClose={() => setWaDraft(null)} />
     </div>
   );
 }

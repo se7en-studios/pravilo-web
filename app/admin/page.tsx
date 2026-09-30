@@ -21,6 +21,9 @@ import {
   PaymentStatus,
   StudentClinicalProfile,
   generateSampleClinicalProfiles,
+  MessageTemplatesConfig,
+  DEFAULT_MESSAGE_TEMPLATES,
+  LOCAL_STORAGE_MESSAGES_KEY,
 } from "@/lib/bookings";
 
 import { AdminHeader, AdminTab } from "@/components/admin/AdminHeader";
@@ -38,6 +41,7 @@ import { GiftCardsTab } from "@/components/admin/GiftCardsTab";
 import { FidelizacionTab } from "@/components/admin/FidelizacionTab";
 import { CampanasTab } from "@/components/admin/CampanasTab";
 import { GaleriaTab } from "@/components/admin/GaleriaTab";
+import { MensajesTab } from "@/components/admin/MensajesTab";
 import { GalleryImageItem, DEFAULT_GALLERY_IMAGES } from "@/lib/gallery";
 
 export default function AdminPage() {
@@ -83,6 +87,8 @@ export default function AdminPage() {
   const [galleryImages, setGalleryImages] = useState<GalleryImageItem[]>(
     DEFAULT_GALLERY_IMAGES,
   );
+  const [messageTemplates, setMessageTemplates] =
+    useState<MessageTemplatesConfig>(DEFAULT_MESSAGE_TEMPLATES);
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
 
   // Price State
@@ -398,6 +404,7 @@ export default function AdminPage() {
     clinicalProfiles?: Record<string, StudentClinicalProfile>;
     giftCards?: GiftCard[];
     galleryImages?: GalleryImageItem[];
+    messageTemplates?: MessageTemplatesConfig;
   }) => {
     if (data.config) {
       setConfig(data.config);
@@ -447,6 +454,17 @@ export default function AdminPage() {
       localStorage.setItem(
         "pravilo_gallery_images",
         JSON.stringify(data.galleryImages),
+      );
+    }
+    if (data.messageTemplates && typeof data.messageTemplates === "object") {
+      const merged = {
+        ...DEFAULT_MESSAGE_TEMPLATES,
+        ...data.messageTemplates,
+      };
+      setMessageTemplates(merged);
+      localStorage.setItem(
+        LOCAL_STORAGE_MESSAGES_KEY,
+        JSON.stringify(merged),
       );
     }
   };
@@ -524,6 +542,16 @@ export default function AdminPage() {
     if (savedPrices) {
       try {
         setPlanPrices(JSON.parse(savedPrices));
+      } catch {}
+    }
+
+    const storedMessages = localStorage.getItem(LOCAL_STORAGE_MESSAGES_KEY);
+    if (storedMessages) {
+      try {
+        const parsed = JSON.parse(storedMessages);
+        if (typeof parsed === "object" && parsed !== null) {
+          setMessageTemplates({ ...DEFAULT_MESSAGE_TEMPLATES, ...parsed });
+        }
       } catch {}
     }
 
@@ -985,6 +1013,33 @@ export default function AdminPage() {
     }
   };
 
+  const handleSaveMessageTemplates = async (
+    newTemplates: MessageTemplatesConfig,
+  ) => {
+    const previous = messageTemplates;
+    setMessageTemplates(newTemplates);
+    localStorage.setItem(
+      LOCAL_STORAGE_MESSAGES_KEY,
+      JSON.stringify(newTemplates),
+    );
+
+    const saved = await saveConfigSlice(
+      { messageTemplates: newTemplates },
+      () => {
+        setMessageTemplates(previous);
+        localStorage.setItem(
+          LOCAL_STORAGE_MESSAGES_KEY,
+          JSON.stringify(previous),
+        );
+      },
+      "No se pudieron guardar las plantillas de mensajes.",
+    );
+    if (saved) {
+      setSaveStatus("✓ Plantillas de mensajes guardadas correctamente.");
+      setTimeout(() => setSaveStatus(null), 3000);
+    }
+  };
+
   const handleSaveClinicalProfile = async (
     phone: string,
     profile: StudentClinicalProfile,
@@ -1294,6 +1349,7 @@ export default function AdminPage() {
           <TurnosTab
             bookings={bookings}
             bankConfig={bankConfig}
+            messageTemplates={messageTemplates}
             onUpdateStatus={handleUpdateBookingStatus}
             onUpdatePaymentStatus={handleUpdatePaymentStatus}
             onSaveInternalNote={handleSaveInternalNote}
@@ -1338,6 +1394,7 @@ export default function AdminPage() {
             bookings={bookings}
             config={config}
             bankConfig={bankConfig}
+            messageTemplates={messageTemplates}
             onOpenManualBookingForDate={(date, slot) => {
               setBookingModalState({
                 isOpen: true,
@@ -1356,6 +1413,15 @@ export default function AdminPage() {
                 bookingToEdit: booking,
               })
             }
+          />
+        )}
+
+        {activeTab === "mensajes" && (
+          <MensajesTab
+            messageTemplates={messageTemplates}
+            onSaveMessageTemplates={handleSaveMessageTemplates}
+            bankConfig={bankConfig}
+            saveStatus={saveStatus}
           />
         )}
 
@@ -1386,7 +1452,10 @@ export default function AdminPage() {
         )}
 
         {activeTab === "fidelizacion" && (
-          <FidelizacionTab bookings={bookings} />
+          <FidelizacionTab
+            bookings={bookings}
+            messageTemplates={messageTemplates}
+          />
         )}
 
         {activeTab === "horarios" && (
@@ -1412,6 +1481,7 @@ export default function AdminPage() {
         onClose={() => setShowAlertsDrawer(false)}
         bookings={bookings}
         bankConfig={bankConfig}
+        messageTemplates={messageTemplates}
         onSelectBooking={(id) => {
           setShowAlertsDrawer(false);
           const b = bookings.find((bk) => bk.id === id);

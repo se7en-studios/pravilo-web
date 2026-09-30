@@ -108,6 +108,50 @@ export const LOCAL_STORAGE_BANK_KEY = "pravilo_bank_config_v1";
 export const LOCAL_STORAGE_CLINICAL_KEY = "pravilo_student_clinical_v1";
 export const LOCAL_STORAGE_GIFTCARDS_KEY = "pravilo_giftcards_v1";
 export const LOCAL_STORAGE_PRICES_KEY = "pravilo_plan_prices_v1";
+export const LOCAL_STORAGE_MESSAGES_KEY = "pravilo_messages_config_v1";
+
+export interface MessageTemplatesConfig {
+  confirmar: string;
+  recordatorio: string;
+  reagendar: string;
+  seguimiento_post: string;
+  pago: string;
+  ubicacion: string;
+  renovacion: string;
+  resena: string;
+  reactivacion: string;
+  giftcard: string;
+  comprobante: string;
+  autoPromptReviewOnComplete?: boolean;
+  autoPromptConfirmOnConfirm?: boolean;
+}
+
+export const DEFAULT_MESSAGE_TEMPLATES: MessageTemplatesConfig = {
+  confirmar: `¡Hola {nombre}! 👋 Te escribo de *PRAVILO ARG* para confirmarte tu turno:\n\n📋 *Plan:* {plan}\n📅 *Día:* {fecha}\n⏰ *Horario:* {hora} hs\n📍 *Ubicación:* Plottier, Neuquén\n\n¡Tu sesión quedó confirmada! Te recomendamos venir con ropa cómoda deportiva. ¡Te esperamos! 🙌`,
+
+  recordatorio: `¡Hola {nombre}! 👋 Te recordamos tu sesión de *PRAVILO ARG* programada para {dia_relativo} a las *{hora} hs*.\n\nRecordá asistir con ropa deportiva cómoda e hidratarte bien. ¡Nos vemos en el estudio! 🧘‍♂️`,
+
+  reagendar: `¡Hola {nombre}! 👋 Te escribo de *PRAVILO ARG* con respecto a tu turno del {fecha} a las {hora} hs.\n\n¿Tendrías disponibilidad para coordinar un nuevo día u horario? ¡Avisame y lo acomodamos!`,
+
+  seguimiento_post: `¡Hola {nombre}! 👋 ¿Cómo amaneció tu cuerpo hoy después de la sesión de PRAVILO?\n\nRecordá tomar bastante agua hoy para acompañar la hidratación fascial y no dudes en avisarme si tenés alguna duda o consulta. ¡Te esperamos pronto en el estudio! 🙌`,
+
+  pago: `¡Hola {nombre}! 👋 Te paso los datos bancarios para abonar tu sesión/pack de *PRAVILO ARG*:\n\n💰 *Monto:* {monto}\n💳 *Alias:* {alias}\n{datos_bancarios}\nUna vez realizada la transferencia, envianos el comprobante por acá para registrarlo. ¡Muchas gracias! 🙌`,
+
+  ubicacion: `¡Hola {nombre}! 👋 Te comparto la ubicación y referencias para llegar al estudio de *PRAVILO ARG* en Plottier:\n\n📍 *Dirección:* {ubicacion}\n🗺️ *Google Maps:* {maps_url}\n\nCualquier duda al llegar, avisanos por este medio. ¡Buen viaje! 🚗`,
+
+  renovacion: `¡Hola {nombre}! 👋 ¡Felicitaciones por el avance logrado en tus sesiones de PRAVILO! 🌟\n\nEstás completando tu pack actual. Si querés renovar para el próximo mes y asegurar tu cupo y horarios habituales, avisame y te reservo tu lugar con la tarifa del pack. ¡Seguimos trabajando en tu movilidad! 🙌`,
+
+  resena: `¡Hola {nombre}! 👋 Te escribo de *PRAVILO ARG*.\n\nQueríamos agradecerte por confiar en nosotros para tu entrenamiento y descompresión corporal. 🧘‍♂️✨\n\n¿Nos ayudarías dejando una breve reseña en Google sobre tu experiencia? Nos ayuda muchísimo a que más personas descubran los beneficios del método Pravilo en Neuquén:\n\n⭐ *Dejar Reseña en Google:* {review_url}\n\n¡Muchas gracias por tu apoyo y nos vemos en la próxima sesión! 🙌`,
+
+  reactivacion: `¡Hola {nombre}! 👋 Te escribo desde *PRAVILO ARG* en Plottier.\n\n{texto_ultima_fecha}¿Cómo te venís sintiendo con tu postura y movilidad?\n\nTe escribo para ver si te gustaría agendar una nueva sesión esta semana para continuar liberando tensión fascial y descomprimir la columna. ¡Avisame y coordinamos! 🙌`,
+
+  giftcard: `🎁 *¡VOUCHER / GIFT CARD DIGITAL PRAVILO ARG!* 🌟\n\n👤 *Para:* {destinatario}\n🤝 *De parte de:* {remitente}\n📋 *Experiencia:* {plan} ({monto})\n🎟️ *Código de Canje:* \`{codigo}\`\n{mensaje_personalizado}\n──────────────────\n📍 *Ubicación:* Plottier, Neuquén\n📲 Para coordinar día y horario, respondé a este mensaje mencionando tu código de canje.\n¡Que disfrutes tu sesión de descompresión y bienestar! 🙌`,
+
+  comprobante: `🧾 *COMPROBANTE / DETALLE DE PAGO - PRAVILO ARG*\n\n👤 *Alumno:* {nombre}\n📋 *Plan/Servicio:* {plan}\n📅 *Turno:* {fecha} - {hora} hs\n──────────────────\n💰 *Total del Plan:* {total}\n✅ *Abonado / Seña:* {abonado}\n⏳ *Saldo Pendiente:* {saldo}\n──────────────────\n\n{detalle_pago_saldo}📍 Estudio PRAVILO: Plottier, Neuquén.`,
+
+  autoPromptReviewOnComplete: true,
+  autoPromptConfirmOnConfirm: true,
+};
 
 export function generateSampleBookings(): Booking[] {
   const formatDate = (offsetDays: number) => {
@@ -448,7 +492,7 @@ export function formatRelativeTime(isoString: string): string {
 // same way instead of going through toISOString (which is UTC and used to
 // say "mañana" for a booking that was actually today, in the evening in
 // ART/UTC-3).
-function relativeDayLabel(bookingDate: string): string {
+export function relativeDayLabel(bookingDate: string): string {
   const localISO = (d: Date) =>
     `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
@@ -479,7 +523,20 @@ export type QuickWhatsAppMessageType =
   | "seguimiento_post"
   | "pago"
   | "ubicacion"
-  | "renovacion";
+  | "renovacion"
+  | "resena";
+
+export function interpolateMessageTemplate(
+  template: string,
+  variables: Record<string, string | number | undefined>,
+): string {
+  let result = template;
+  for (const [key, val] of Object.entries(variables)) {
+    const stringVal = val !== undefined && val !== null ? String(val) : "";
+    result = result.replace(new RegExp(`\\{${key}\\}`, "g"), stringVal);
+  }
+  return result;
+}
 
 // Raw message text, so the admin UI can show it in an editable textarea
 // before opening WhatsApp — see buildQuickWhatsAppMessage below for the
@@ -488,8 +545,39 @@ export function buildQuickWhatsAppText(
   type: QuickWhatsAppMessageType,
   booking: Booking,
   bankConfig?: BankConfig,
+  templates?: MessageTemplatesConfig,
 ): string {
   const bank = bankConfig || DEFAULT_BANK_CONFIG;
+
+  if (type === "resena") {
+    return buildGoogleReviewWhatsAppText(booking.customerName, templates);
+  }
+
+  if (templates && templates[type]) {
+    let bankLines = "";
+    if (bank.cbu) bankLines += `🔢 *CBU:* ${bank.cbu}\n`;
+    if (bank.titular) bankLines += `👤 *Titular:* ${bank.titular}\n`;
+    if (bank.banco) bankLines += `🏦 *Banco:* ${bank.banco}\n`;
+
+    const vars: Record<string, string> = {
+      nombre: booking.customerName.trim(),
+      plan: booking.planTitle,
+      fecha: booking.date,
+      hora: booking.time,
+      dia_relativo: relativeDayLabel(booking.date),
+      monto: booking.planPrice,
+      alias: bank.alias || "PRAVILO.ARG",
+      cbu: bank.cbu || "",
+      titular: bank.titular || "",
+      banco: bank.banco || "",
+      datos_bancarios: bankLines,
+      ubicacion: LOCATION,
+      maps_url: GOOGLE_MAPS_URL,
+      review_url: GOOGLE_WRITE_REVIEW_URL,
+    };
+    return interpolateMessageTemplate(templates[type], vars);
+  }
+
   let text = "";
 
   if (type === "confirmar") {
@@ -533,12 +621,13 @@ export function buildQuickWhatsAppMessage(
   type: QuickWhatsAppMessageType,
   booking: Booking,
   bankConfig?: BankConfig,
+  templates?: MessageTemplatesConfig,
 ): string {
   const cleanPhone = (booking.customerPhone || "").replace(/\D/g, "");
   if (!cleanPhone) return "";
   return buildWhatsAppUrl(
     cleanPhone,
-    buildQuickWhatsAppText(type, booking, bankConfig),
+    buildQuickWhatsAppText(type, booking, bankConfig, templates),
   );
 }
 
@@ -550,6 +639,7 @@ export function buildWhatsAppUrl(phone: string, text: string): string {
 export function buildReceiptWhatsAppText(
   booking: Booking,
   bankConfig?: BankConfig,
+  templates?: MessageTemplatesConfig,
 ): string {
   const bank = bankConfig || DEFAULT_BANK_CONFIG;
   const total = booking.totalAmount || parsePriceToNumber(booking.planPrice);
@@ -557,6 +647,36 @@ export function buildReceiptWhatsAppText(
     booking.amountPaid ||
     (booking.paymentStatus?.startsWith("pagado") ? total : 0);
   const pending = Math.max(0, total - paid);
+
+  if (templates?.comprobante) {
+    let pendingSection = "";
+    if (pending > 0) {
+      pendingSection += `💳 *Datos para transferir el saldo:*\n`;
+      pendingSection += `• *Alias:* ${bank.alias || "PRAVILO.ARG"}\n`;
+      if (bank.cbu) pendingSection += `• *CBU:* ${bank.cbu}\n`;
+      if (bank.titular) pendingSection += `• *Titular:* ${bank.titular}\n`;
+      if (bank.banco) pendingSection += `• *Banco:* ${bank.banco}\n\n`;
+      pendingSection += `_El saldo también puede abonarse en efectivo o transferencia el día de la sesión._\n\n`;
+    } else {
+      pendingSection += `✨ *¡Plan abonado al 100%!* Muchas gracias por tu compromiso. 🙌\n\n`;
+    }
+
+    return interpolateMessageTemplate(templates.comprobante, {
+      nombre: booking.customerName.trim(),
+      plan: booking.planTitle,
+      fecha: booking.date,
+      hora: booking.time,
+      total: `$${total.toLocaleString("es-AR")}`,
+      abonado: `$${paid.toLocaleString("es-AR")}`,
+      saldo: `$${pending.toLocaleString("es-AR")}`,
+      alias: bank.alias || "PRAVILO.ARG",
+      cbu: bank.cbu || "",
+      titular: bank.titular || "",
+      banco: bank.banco || "",
+      detalle_pago_saldo: pendingSection,
+      ubicacion: LOCATION,
+    });
+  }
 
   let text = `🧾 *COMPROBANTE / DETALLE DE PAGO - PRAVILO ARG*\n\n`;
   text += `👤 *Alumno:* ${booking.customerName.trim()}\n`;
@@ -586,22 +706,30 @@ export function buildReceiptWhatsAppText(
 export function buildReceiptWhatsAppMessage(
   booking: Booking,
   bankConfig?: BankConfig,
+  templates?: MessageTemplatesConfig,
 ): string {
   const cleanPhone = (booking.customerPhone || "").replace(/\D/g, "");
   if (!cleanPhone) return "";
   return buildWhatsAppUrl(
     cleanPhone,
-    buildReceiptWhatsAppText(booking, bankConfig),
+    buildReceiptWhatsAppText(booking, bankConfig, templates),
   );
 }
 
-export function buildReactivationWhatsAppMessage(
+export function buildReactivationWhatsAppText(
   customerName: string,
-  customerPhone: string,
   lastDate?: string,
+  templates?: MessageTemplatesConfig,
 ): string {
-  const cleanPhone = (customerPhone || "").replace(/\D/g, "");
-  if (!cleanPhone) return "";
+  if (templates?.reactivacion) {
+    return interpolateMessageTemplate(templates.reactivacion, {
+      nombre: customerName.trim(),
+      fecha_ultima: lastDate || "",
+      texto_ultima_fecha: lastDate
+        ? `Vi que tu última sesión fue el ${lastDate}. ¿Cómo te venís sintiendo de la espalda y movilidad en estos días?\n\n`
+        : "",
+    });
+  }
 
   let text = `¡Hola ${customerName.trim()}! 👋 Te escribo desde *PRAVILO ARG* en Plottier.\n\n`;
   if (lastDate) {
@@ -611,7 +739,21 @@ export function buildReactivationWhatsAppMessage(
   }
   text += `Te escribo para ver si te gustaría agendar una nueva sesión esta semana para continuar liberando tensión fascial y descomprimir la columna. ¡Avisame y coordinamos! 🙌`;
 
-  return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(text)}`;
+  return text;
+}
+
+export function buildReactivationWhatsAppMessage(
+  customerName: string,
+  customerPhone: string,
+  lastDate?: string,
+  templates?: MessageTemplatesConfig,
+): string {
+  const cleanPhone = (customerPhone || "").replace(/\D/g, "");
+  if (!cleanPhone) return "";
+  return buildWhatsAppUrl(
+    cleanPhone,
+    buildReactivationWhatsAppText(customerName, lastDate, templates),
+  );
 }
 
 export function buildGoogleCalendarUrl(booking: Booking): string {
@@ -742,32 +884,58 @@ export function exportStudentsToCSV(
   document.body.removeChild(link);
 }
 
-export function buildGoogleReviewWhatsAppMessage(
+export function buildGoogleReviewWhatsAppText(
   customerName: string,
-  customerPhone: string,
+  templates?: MessageTemplatesConfig,
 ): string {
-  const cleanPhone = (customerPhone || "").replace(/\D/g, "");
-  if (!cleanPhone) return "";
+  if (templates?.resena) {
+    return interpolateMessageTemplate(templates.resena, {
+      nombre: customerName.trim(),
+      review_url: GOOGLE_WRITE_REVIEW_URL,
+      maps_url: GOOGLE_MAPS_URL,
+      ubicacion: LOCATION,
+    });
+  }
 
   let text = `¡Hola ${customerName.trim()}! 👋 Te escribo de *PRAVILO ARG*.\n\n`;
   text += `Queríamos agradecerte por confiar en nosotros para tu entrenamiento y descompresión corporal. 🧘‍♂️✨\n\n`;
   text += `¿Nos ayudarías dejando una breve reseña en Google sobre tu experiencia? Nos ayuda muchísimo a que más personas descubran los beneficios del método Pravilo en Neuquén:\n\n`;
   text += `⭐ *Dejar Reseña en Google:* ${GOOGLE_WRITE_REVIEW_URL}\n\n`;
   text += `¡Muchas gracias por tu apoyo y nos vemos en la próxima sesión! 🙌`;
-
-  return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(text)}`;
+  return text;
 }
 
-export function buildGiftCardShareWhatsAppMessage(
-  giftCard: GiftCard,
-  phone?: string,
+export function buildGoogleReviewWhatsAppMessage(
+  customerName: string,
+  customerPhone: string,
+  templates?: MessageTemplatesConfig,
 ): string {
-  const cleanPhone = (
-    phone ||
-    giftCard.recipientPhone ||
-    giftCard.senderPhone ||
-    ""
-  ).replace(/\D/g, "");
+  const cleanPhone = (customerPhone || "").replace(/\D/g, "");
+  if (!cleanPhone) return "";
+  return buildWhatsAppUrl(
+    cleanPhone,
+    buildGoogleReviewWhatsAppText(customerName, templates),
+  );
+}
+
+export function buildGiftCardShareWhatsAppText(
+  giftCard: GiftCard,
+  templates?: MessageTemplatesConfig,
+): string {
+  if (templates?.giftcard) {
+    return interpolateMessageTemplate(templates.giftcard, {
+      destinatario: giftCard.recipientName,
+      remitente: giftCard.senderName,
+      plan: giftCard.planTitle,
+      monto: giftCard.price,
+      codigo: giftCard.code,
+      mensaje_personalizado: giftCard.customMessage
+        ? `💌 *Mensaje:* "${giftCard.customMessage}"\n`
+        : "",
+      ubicacion: LOCATION,
+      maps_url: GOOGLE_MAPS_URL,
+    });
+  }
 
   let text = `🎁 *¡VOUCHER / GIFT CARD DIGITAL PRAVILO ARG!* 🌟\n\n`;
   text += `👤 *Para:* ${giftCard.recipientName}\n`;
@@ -781,10 +949,26 @@ export function buildGiftCardShareWhatsAppMessage(
   text += `📍 *Ubicación:* Plottier, Neuquén\n`;
   text += `📲 Para coordinar día y horario, respondé a este mensaje mencionando tu código de canje.\n`;
   text += `¡Que disfrutes tu sesión de descompresión y bienestar! 🙌`;
+  return text;
+}
 
-  return cleanPhone
-    ? `https://wa.me/${cleanPhone}?text=${encodeURIComponent(text)}`
-    : "";
+export function buildGiftCardShareWhatsAppMessage(
+  giftCard: GiftCard,
+  phone?: string,
+  templates?: MessageTemplatesConfig,
+): string {
+  const cleanPhone = (
+    phone ||
+    giftCard.recipientPhone ||
+    giftCard.senderPhone ||
+    ""
+  ).replace(/\D/g, "");
+
+  if (!cleanPhone) return "";
+  return buildWhatsAppUrl(
+    cleanPhone,
+    buildGiftCardShareWhatsAppText(giftCard, templates),
+  );
 }
 
 export function downloadFullJSONBackup(data: {

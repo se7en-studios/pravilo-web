@@ -16,6 +16,8 @@ import {
   DEFAULT_BANK_CONFIG,
   GiftCard,
   StudentClinicalProfile,
+  MessageTemplatesConfig,
+  DEFAULT_MESSAGE_TEMPLATES,
 } from "./bookings";
 import { DEFAULT_SCHEDULE_CONFIG, ScheduleConfig } from "./availability";
 import { GalleryImageItem, DEFAULT_GALLERY_IMAGES } from "./gallery";
@@ -34,6 +36,8 @@ import {
   saveServerGiftCards,
   getServerGalleryImages,
   saveServerGalleryImages,
+  getServerMessageTemplates,
+  saveServerMessageTemplates,
   DEFAULT_PLAN_PRICES,
 } from "./serverStorage";
 
@@ -401,6 +405,48 @@ export async function saveDBGalleryImages(
     return true;
   } catch (err) {
     console.error("Error saving gallery images to Firestore:", err);
+    return false;
+  }
+}
+
+// ----------------- MESSAGE TEMPLATES -----------------
+export async function getDBMessageTemplates(): Promise<MessageTemplatesConfig> {
+  const db = getFirestoreDB();
+  if (!db || !isFirebaseConfigured()) {
+    return getServerMessageTemplates();
+  }
+
+  try {
+    const docRef = doc(db, "config", "message_templates");
+    const snapshot = await getDoc(docRef);
+    if (snapshot.exists()) {
+      const data = snapshot.data() as MessageTemplatesConfig;
+      const merged = { ...DEFAULT_MESSAGE_TEMPLATES, ...data };
+      saveServerMessageTemplates(merged);
+      return merged;
+    }
+  } catch (err) {
+    console.error("Error reading message templates from Firestore:", err);
+  }
+
+  return getServerMessageTemplates();
+}
+
+export async function saveDBMessageTemplates(
+  templates: MessageTemplatesConfig,
+): Promise<boolean> {
+  const merged = { ...DEFAULT_MESSAGE_TEMPLATES, ...templates };
+  const fsOk = saveServerMessageTemplates(merged);
+
+  const db = getFirestoreDB();
+  if (!db || !isFirebaseConfigured()) return fsOk;
+
+  try {
+    const docRef = doc(db, "config", "message_templates");
+    await setDoc(docRef, stripUndefined(merged));
+    return true;
+  } catch (err) {
+    console.error("Error saving message templates to Firestore:", err);
     return false;
   }
 }

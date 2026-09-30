@@ -6,6 +6,8 @@ import {
   DEFAULT_BANK_CONFIG,
   GiftCard,
   StudentClinicalProfile,
+  MessageTemplatesConfig,
+  DEFAULT_MESSAGE_TEMPLATES,
 } from "./bookings";
 import { DEFAULT_SCHEDULE_CONFIG, ScheduleConfig } from "./availability";
 import { GalleryImageItem, DEFAULT_GALLERY_IMAGES } from "./gallery";
@@ -17,6 +19,7 @@ const BANK_FILE = path.join(DATA_DIR, "bank.json");
 const PRICES_FILE = path.join(DATA_DIR, "prices.json");
 const CLINICAL_FILE = path.join(DATA_DIR, "clinical.json");
 const GIFTCARDS_FILE = path.join(DATA_DIR, "giftcards.json");
+const MESSAGES_FILE = path.join(DATA_DIR, "messages.json");
 
 export const DEFAULT_PLAN_PRICES = {
   individual: "$35.000",
@@ -37,6 +40,7 @@ let cachedPrices: Record<string, string | undefined> = {
 };
 let cachedClinical: Record<string, StudentClinicalProfile> = {};
 let cachedGiftCards: GiftCard[] = [];
+let cachedMessages: MessageTemplatesConfig = { ...DEFAULT_MESSAGE_TEMPLATES };
 
 function ensureDataDir() {
   try {
@@ -320,6 +324,45 @@ export function saveServerGalleryImages(images: GalleryImageItem[]): boolean {
     return true;
   } catch (err) {
     console.error("Error saving gallery to file:", err);
+    return false;
+  }
+}
+
+// ----------------- MESSAGE TEMPLATES -----------------
+export function getServerMessageTemplates(): MessageTemplatesConfig {
+  ensureDataDir();
+
+  try {
+    if (fs.existsSync(MESSAGES_FILE)) {
+      const raw = fs.readFileSync(MESSAGES_FILE, "utf-8");
+      const parsed = JSON.parse(raw);
+      if (typeof parsed === "object" && parsed !== null) {
+        cachedMessages = { ...DEFAULT_MESSAGE_TEMPLATES, ...parsed };
+        return cachedMessages;
+      }
+    }
+  } catch (err) {
+    console.error("Error reading messages file:", err);
+  }
+
+  return cachedMessages;
+}
+
+export function saveServerMessageTemplates(
+  templates: MessageTemplatesConfig,
+): boolean {
+  cachedMessages = { ...DEFAULT_MESSAGE_TEMPLATES, ...templates };
+  ensureDataDir();
+
+  try {
+    fs.writeFileSync(
+      MESSAGES_FILE,
+      JSON.stringify(cachedMessages, null, 2),
+      "utf-8",
+    );
+    return true;
+  } catch (err) {
+    console.error("Error saving messages to file:", err);
     return false;
   }
 }

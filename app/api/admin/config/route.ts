@@ -12,13 +12,15 @@ import {
   saveDBGiftCards,
   getDBGalleryImages,
   saveDBGalleryImages,
+  getDBMessageTemplates,
+  saveDBMessageTemplates,
 } from "@/lib/cloudStorage";
 import { isValidPin, getRequestPin } from "@/lib/adminAuth";
 
 // config/planPrices/galleryImages are public (consumed by the landing page
-// for anyone). bankConfig/clinicalProfiles/giftCards hold financial and
-// health data and must never be sent to a request that didn't prove the
-// admin PIN.
+// for anyone). bankConfig/clinicalProfiles/giftCards/messageTemplates hold
+// sensitive or internal admin data and must never be sent to a request that
+// didn't prove the admin PIN.
 export async function GET(req: NextRequest) {
   try {
     const pin = getRequestPin(req);
@@ -40,11 +42,13 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    const [bankConfig, clinicalProfiles, giftCards] = await Promise.all([
-      getDBBankConfig(),
-      getDBClinicalProfiles(),
-      getDBGiftCards(),
-    ]);
+    const [bankConfig, clinicalProfiles, giftCards, messageTemplates] =
+      await Promise.all([
+        getDBBankConfig(),
+        getDBClinicalProfiles(),
+        getDBGiftCards(),
+        getDBMessageTemplates(),
+      ]);
 
     return NextResponse.json({
       ok: true,
@@ -55,6 +59,7 @@ export async function GET(req: NextRequest) {
       clinicalProfiles,
       giftCards,
       galleryImages,
+      messageTemplates,
     });
   } catch (err: unknown) {
     return NextResponse.json(
@@ -78,6 +83,7 @@ export async function POST(req: NextRequest) {
       clinicalProfiles,
       giftCards,
       galleryImages,
+      messageTemplates,
       pin,
     } = body;
 
@@ -108,6 +114,9 @@ export async function POST(req: NextRequest) {
     if (galleryImages && Array.isArray(galleryImages)) {
       promises.push(saveDBGalleryImages(galleryImages));
     }
+    if (messageTemplates && typeof messageTemplates === "object") {
+      promises.push(saveDBMessageTemplates(messageTemplates));
+    }
 
     const results = await Promise.all(promises);
     if (results.some((ok) => !ok)) {
@@ -124,6 +133,7 @@ export async function POST(req: NextRequest) {
       updatedClinical,
       updatedGiftCards,
       updatedGalleryImages,
+      updatedMessageTemplates,
     ] = await Promise.all([
       getDBScheduleConfig(),
       getDBBankConfig(),
@@ -131,6 +141,7 @@ export async function POST(req: NextRequest) {
       getDBClinicalProfiles(),
       getDBGiftCards(),
       getDBGalleryImages(),
+      getDBMessageTemplates(),
     ]);
 
     return NextResponse.json({
@@ -141,6 +152,7 @@ export async function POST(req: NextRequest) {
       clinicalProfiles: updatedClinical,
       giftCards: updatedGiftCards,
       galleryImages: updatedGalleryImages,
+      messageTemplates: updatedMessageTemplates,
     });
   } catch (err: unknown) {
     return NextResponse.json(

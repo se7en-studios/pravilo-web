@@ -2,13 +2,19 @@
 
 import React, { useState, useMemo } from "react";
 import { ScheduleConfig, getAvailableSlots } from "@/lib/availability";
-import { Booking, buildQuickWhatsAppText, BankConfig } from "@/lib/bookings";
+import {
+  Booking,
+  buildQuickWhatsAppText,
+  BankConfig,
+  MessageTemplatesConfig,
+} from "@/lib/bookings";
 import { WhatsAppDraft, WhatsAppSendModal } from "./WhatsAppSendModal";
 
 interface AgendaCalendarTabProps {
   bookings: Booking[];
   config: ScheduleConfig;
   bankConfig?: BankConfig;
+  messageTemplates?: MessageTemplatesConfig;
   onOpenManualBookingForDate: (date: string, slot?: string) => void;
   onSelectBooking: (id: string) => void;
   onEditBooking?: (booking: Booking) => void;
@@ -18,6 +24,7 @@ export function AgendaCalendarTab({
   bookings,
   config,
   bankConfig,
+  messageTemplates,
   onOpenManualBookingForDate,
   onSelectBooking,
   onEditBooking,
@@ -370,6 +377,7 @@ export function AgendaCalendarTab({
                                       "recordatorio",
                                       bookingInSlot,
                                       bankConfig,
+                                      messageTemplates,
                                     ),
                                   })
                                 }

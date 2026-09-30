@@ -5,8 +5,10 @@ import {
   BankConfig,
   Booking,
   PaymentStatus,
+  MessageTemplatesConfig,
   buildGoogleCalendarUrl,
   buildQuickWhatsAppText,
+  buildGoogleReviewWhatsAppText,
 } from "@/lib/bookings";
 import { CalendarIcon, ReceiptIcon, TrashIcon } from "./Icons";
 import { WhatsAppDraft, WhatsAppSendModal } from "./WhatsAppSendModal";
@@ -14,6 +16,7 @@ import { WhatsAppDraft, WhatsAppSendModal } from "./WhatsAppSendModal";
 interface TurnosTabProps {
   bookings: Booking[];
   bankConfig: BankConfig;
+  messageTemplates?: MessageTemplatesConfig;
   onUpdateStatus: (id: string, status: Booking["status"]) => void;
   onUpdatePaymentStatus: (id: string, paymentStatus: PaymentStatus) => void;
   onSaveInternalNote: (id: string, note: string) => void;
@@ -28,6 +31,7 @@ interface TurnosTabProps {
 export function TurnosTab({
   bookings,
   bankConfig,
+  messageTemplates,
   onUpdateStatus,
   onUpdatePaymentStatus,
   onSaveInternalNote,
@@ -53,6 +57,47 @@ export function TurnosTab({
   // WhatsApp dropdown per item
   const [activeWaMenuId, setActiveWaMenuId] = useState<string | null>(null);
   const [waDraft, setWaDraft] = useState<WhatsAppDraft | null>(null);
+
+  const handleStatusSelect = (
+    booking: Booking,
+    newStatus: Booking["status"],
+  ) => {
+    onUpdateStatus(booking.id, newStatus);
+
+    // AUTOMATION: Solicitud de Reseña en Google al marcar "realizado" (sesión completada)
+    if (
+      newStatus === "realizado" &&
+      messageTemplates?.autoPromptReviewOnComplete !== false &&
+      booking.customerPhone
+    ) {
+      setWaDraft({
+        phone: booking.customerPhone,
+        title: "⭐ Pedir Reseña en Google (Automatización)",
+        text: buildGoogleReviewWhatsAppText(
+          booking.customerName,
+          messageTemplates,
+        ),
+      });
+    }
+
+    // AUTOMATION: Confirmación de Turno al marcar "confirmado"
+    if (
+      newStatus === "confirmado" &&
+      messageTemplates?.autoPromptConfirmOnConfirm !== false &&
+      booking.customerPhone
+    ) {
+      setWaDraft({
+        phone: booking.customerPhone,
+        title: "📩 Confirmar Turno (Automatización)",
+        text: buildQuickWhatsAppText(
+          "confirmar",
+          { ...booking, status: newStatus },
+          bankConfig,
+          messageTemplates,
+        ),
+      });
+    }
+  };
 
   const todayStr = new Date().toISOString().split("T")[0];
   const tomorrowDate = new Date();
@@ -397,8 +442,8 @@ export function TurnosTab({
                       <select
                         value={b.status}
                         onChange={(e) =>
-                          onUpdateStatus(
-                            b.id,
+                          handleStatusSelect(
+                            b,
                             e.target.value as Booking["status"],
                           )
                         }
@@ -646,6 +691,8 @@ export function TurnosTab({
                               type: "recordatorio",
                               label: "Recordatorio de Sesión",
                             },
+                            { type: "resena", label: "⭐ Pedir Reseña Google" },
+                            { type: "reagendar", label: "🔄 Reagendar Turno" },
                             { type: "pago", label: "Enviar Datos de Pago" },
                             { type: "ubicacion", label: "Cómo llegar / Mapa" },
                             {
@@ -669,6 +716,7 @@ export function TurnosTab({
                                     item.type as any,
                                     b,
                                     bankConfig,
+                                    messageTemplates,
                                   ),
                                 });
                               }}
@@ -773,8 +821,8 @@ export function TurnosTab({
                     <select
                       value={b.status}
                       onChange={(e) =>
-                        onUpdateStatus(
-                          b.id,
+                        handleStatusSelect(
+                          b,
                           e.target.value as Booking["status"],
                         )
                       }
@@ -832,6 +880,7 @@ export function TurnosTab({
                               "confirmar",
                               b,
                               bankConfig,
+                              messageTemplates,
                             ),
                           })
                         }

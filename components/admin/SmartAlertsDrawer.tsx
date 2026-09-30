@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import {
   BankConfig,
   Booking,
+  MessageTemplatesConfig,
   buildQuickWhatsAppText,
   buildReceiptWhatsAppText,
 } from "@/lib/bookings";
@@ -14,6 +15,7 @@ interface SmartAlertsDrawerProps {
   onClose: () => void;
   bookings: Booking[];
   bankConfig: BankConfig;
+  messageTemplates?: MessageTemplatesConfig;
   onSelectBooking: (id: string) => void;
   onUpdateStatus: (id: string, status: Booking["status"]) => void;
 }
@@ -23,6 +25,7 @@ export function SmartAlertsDrawer({
   onClose,
   bookings,
   bankConfig,
+  messageTemplates,
   onSelectBooking,
   onUpdateStatus,
 }: SmartAlertsDrawerProps) {
@@ -200,6 +203,7 @@ export function SmartAlertsDrawer({
                                   "confirmar",
                                   b,
                                   bankConfig,
+                                  messageTemplates,
                                 ),
                               })
                             }
@@ -256,7 +260,11 @@ export function SmartAlertsDrawer({
                             setWaDraft({
                               phone: b.customerPhone,
                               title: "Datos de Pago",
-                              text: buildReceiptWhatsAppText(b, bankConfig),
+                              text: buildReceiptWhatsAppText(
+                                b,
+                                bankConfig,
+                                messageTemplates,
+                              ),
                             })
                           }
                           className="px-3 py-1.5 rounded-lg bg-accent/20 hover:bg-accent/30 text-accent-text text-xs font-condensed font-bold uppercase border border-accent/40 transition-all shrink-0"
@@ -304,6 +312,7 @@ export function SmartAlertsDrawer({
                                 "renovacion",
                                 b,
                                 bankConfig,
+                                messageTemplates,
                               ),
                             })
                           }
@@ -349,6 +358,7 @@ export function SmartAlertsDrawer({
                               "seguimiento_post",
                               b,
                               bankConfig,
+                              messageTemplates,
                             ),
                           })
                         }

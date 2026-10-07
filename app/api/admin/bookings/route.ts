@@ -92,26 +92,42 @@ export async function POST(req: NextRequest) {
 
     // Alta de un turno nuevo: la usa el wizard público (BookingWizard) para
     // registrar la reserva del cliente, así que a propósito no exige PIN.
+    // Pero sin PIN el turno entra siempre pendiente y sin datos de pago:
+    // si no, cualquiera podría cargarse un turno "confirmado" y "pagado".
+    const isAdmin = isValidPin(getRequestPin(req));
     const {
       planTitle,
       planPrice,
-      totalAmount,
-      amountPaid,
-      paymentMethod,
-      tags,
       date,
       time,
       customerName,
       customerPhone,
       customerNotes,
+    } = body;
+    const {
+      totalAmount,
+      amountPaid,
+      paymentMethod,
+      tags,
       internalNotes,
+      sessionDates,
       paymentStatus = "pendiente",
       status = "pendiente",
-    } = body;
+    } = isAdmin ? body : {};
 
     if (!customerName || !date || !time) {
       return NextResponse.json(
         { ok: false, error: "Faltan campos obligatorios" },
+        { status: 400 },
+      );
+    }
+    if (
+      !/^\d{4}-\d{2}-\d{2}$/.test(String(date)) ||
+      !/^\d{1,2}:\d{2}$/.test(String(time).trim()) ||
+      String(customerName).length > 120
+    ) {
+      return NextResponse.json(
+        { ok: false, error: "Datos del turno inválidos" },
         { status: 400 },
       );
     }
@@ -142,9 +158,7 @@ export async function POST(req: NextRequest) {
       sessionsCompleted: 0,
       totalSessions,
       // El alta pública no puede reservar más horarios que el propio turno.
-      sessionDates: isValidPin(getRequestPin(req))
-        ? sanitizeSessionDates(body.sessionDates)
-        : undefined,
+      sessionDates: sanitizeSessionDates(sessionDates),
       status,
     };
 

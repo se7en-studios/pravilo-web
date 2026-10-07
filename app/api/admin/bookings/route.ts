@@ -169,6 +169,14 @@ export async function POST(req: NextRequest) {
         { status: 500 },
       );
     }
+    // La lista completa (nombres, teléfonos, notas clínicas) solo va al admin;
+    // el wizard público no la usa.
+    if (!isAdmin) {
+      return NextResponse.json({
+        ok: true,
+        booking: sanitizeBooking(newBooking),
+      });
+    }
     const updatedBookings = await getDBBookings();
 
     return NextResponse.json({

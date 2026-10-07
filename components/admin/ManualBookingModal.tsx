@@ -2,7 +2,12 @@
 
 import React, { useEffect, useState } from "react";
 import { ScheduleConfig, getAvailableSlots } from "@/lib/availability";
-import { Booking, PaymentMethod, PaymentStatus } from "@/lib/bookings";
+import {
+  Booking,
+  PaymentMethod,
+  PaymentStatus,
+  SessionDate,
+} from "@/lib/bookings";
 import { BoltIcon, CalendarIcon, EditIcon } from "./Icons";
 
 interface ManualBookingModalProps {
@@ -18,6 +23,21 @@ interface ManualBookingModalProps {
   initialDate?: string;
   initialSlot?: string;
   initialStudent?: { name: string; phone: string };
+}
+
+// Ajusta la lista de sesiones extra (2..N) al tamaño del pack.
+function resizeSessionDates(list: SessionDate[], total: number): SessionDate[] {
+  const count = Math.max(0, total - 1);
+  return Array.from(
+    { length: count },
+    (_, i) => list[i] || { date: "", time: "" },
+  );
+}
+
+function addDays(iso: string, days: number): string {
+  const d = new Date(`${iso}T12:00:00`);
+  d.setDate(d.getDate() + days);
+  return d.toISOString().split("T")[0];
 }
 
 const COMMON_TAGS = [
@@ -61,6 +81,7 @@ export function ManualBookingModal({
   const [amountPaid, setAmountPaid] = useState<string>("");
   const [sessionsCompleted, setSessionsCompleted] = useState<number>(0);
   const [totalSessions, setTotalSessions] = useState<number>(1);
+  const [sessionDates, setSessionDates] = useState<SessionDate[]>([]);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [customerNotes, setCustomerNotes] = useState("");
   const [internalNotes, setInternalNotes] = useState("");
@@ -88,6 +109,12 @@ export function ManualBookingModal({
       );
       setSessionsCompleted(bookingToEdit.sessionsCompleted || 0);
       setTotalSessions(bookingToEdit.totalSessions || 1);
+      setSessionDates(
+        resizeSessionDates(
+          bookingToEdit.sessionDates || [],
+          bookingToEdit.totalSessions || 1,
+        ),
+      );
       setSelectedTags(bookingToEdit.tags || []);
       setCustomerNotes(bookingToEdit.customerNotes || "");
       setInternalNotes(bookingToEdit.internalNotes || "");
@@ -106,6 +133,7 @@ export function ManualBookingModal({
       setAmountPaid("");
       setSessionsCompleted(0);
       setTotalSessions(1);
+      setSessionDates([]);
       setSelectedTags([]);
       setCustomerNotes("");
       setInternalNotes("");
@@ -153,9 +181,35 @@ export function ManualBookingModal({
   const handlePlanSelect = (selectedPlan: string, total: number) => {
     setPlanTitle(selectedPlan);
     setTotalSessions(total);
+    setSessionDates((prev) => resizeSessionDates(prev, total));
     if (!isEditing) {
       setCustomPrice(getPriceForPlan(selectedPlan));
     }
+  };
+
+  const updateSessionDate = (index: number, patch: Partial<SessionDate>) => {
+    setSessionDates((prev) =>
+      prev.map((s, i) => (i === index ? { ...s, ...patch } : s)),
+    );
+  };
+
+  // Completa las sesiones sin fecha una semana después de la anterior,
+  // mismo horario. Las que ya tienen fecha no se tocan.
+  const fillWeekly = () => {
+    const baseTime =
+      useCustomTime && customTime.trim() ? customTime.trim() : time;
+    setSessionDates((prev) => {
+      let lastDate = date;
+      let lastTime = baseTime;
+      return prev.map((s) => {
+        const next = s.date
+          ? s
+          : { date: addDays(lastDate, 7), time: s.time || lastTime };
+        lastDate = next.date;
+        lastTime = next.time || lastTime;
+        return next;
+      });
+    });
   };
 
   const toggleTag = (tag: string) => {
@@ -215,6 +269,7 @@ export function ManualBookingModal({
       tags: selectedTags,
       totalSessions: calculatedTotalSessions,
       sessionsCompleted: Math.min(sessionsCompleted, calculatedTotalSessions),
+      sessionDates: resizeSessionDates(sessionDates, calculatedTotalSessions),
     };
 
     await onSaveBooking(payload, isEditing);
@@ -454,6 +509,67 @@ export function ManualBookingModal({
                   >
                     +
                   </button>
+                </div>
+              </div>
+            )}
+
+            {/* Fechas de cada sesión del pack */}
+            {totalSessions > 1 && sessionDates.length > 0 && (
+              <div className="p-3 rounded-xl bg-surface-raised border border-border space-y-2 mt-2">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs font-condensed font-bold uppercase tracking-wide text-accent-text">
+                    Fechas de las sesiones
+                  </span>
+                  <button
+                    type="button"
+                    onClick={fillWeekly}
+                    className="text-[11px] font-condensed uppercase tracking-wider text-muted hover:text-accent-text underline"
+                  >
+                    Completar vacías (cada semana)
+                  </button>
+                </div>
+                <p className="text-[11px] text-muted font-sans">
+                  La sesión 1 es la fecha del turno de arriba. Si el alumno no
+                  puede un día, cambiale la fecha acá: no hace falta crear otro
+                  turno.
+                </p>
+                <div className="space-y-1.5 max-h-72 overflow-y-auto pr-1">
+                  {sessionDates.map((s, i) => {
+                    const sessionNumber = i + 2;
+                    const isDone = sessionNumber <= sessionsCompleted;
+                    return (
+                      <div
+                        key={sessionNumber}
+                        className="grid grid-cols-[4.5rem_1fr_6.5rem] items-center gap-2"
+                      >
+                        <span
+                          className={`text-[11px] font-condensed font-bold uppercase ${
+                            isDone ? "text-emerald-400" : "text-muted"
+                          }`}
+                        >
+                          {isDone ? "✓ " : ""}Sesión {sessionNumber}
+                        </span>
+                        <input
+                          type="date"
+                          aria-label={`Fecha de la sesión ${sessionNumber}`}
+                          value={s.date}
+                          onChange={(e) =>
+                            updateSessionDate(i, { date: e.target.value })
+                          }
+                          className="w-full px-2.5 py-1.5 rounded-lg bg-surface border border-border text-xs text-foreground focus:border-accent focus:outline-none font-mono"
+                        />
+                        <input
+                          type="time"
+                          aria-label={`Horario de la sesión ${sessionNumber}`}
+                          value={s.time}
+                          onChange={(e) =>
+                            updateSessionDate(i, { time: e.target.value })
+                          }
+                          className="w-full px-2.5 py-1.5 rounded-lg bg-surface border border-border text-xs text-foreground focus:border-accent focus:outline-none font-mono"
+                        />
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}

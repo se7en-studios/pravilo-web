@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { Booking, generateSampleBookings } from "@/lib/bookings";
+import {
+  Booking,
+  generateSampleBookings,
+  sanitizeSessionDates,
+} from "@/lib/bookings";
 import {
   getDBBookings,
   saveDBBookings,
@@ -13,7 +17,13 @@ import { isValidPin, getRequestPin } from "@/lib/adminAuth";
 // necesita fecha/horario/estado para saber qué turnos están ocupados, así
 // que sin PIN válido se devuelve solo eso.
 function sanitizeBooking(b: Booking) {
-  return { id: b.id, date: b.date, time: b.time, status: b.status };
+  return {
+    id: b.id,
+    date: b.date,
+    time: b.time,
+    status: b.status,
+    sessionDates: b.sessionDates,
+  };
 }
 
 export async function GET(req: NextRequest) {
@@ -131,6 +141,10 @@ export async function POST(req: NextRequest) {
       paymentStatus,
       sessionsCompleted: 0,
       totalSessions,
+      // El alta pública no puede reservar más horarios que el propio turno.
+      sessionDates: isValidPin(getRequestPin(req))
+        ? sanitizeSessionDates(body.sessionDates)
+        : undefined,
       status,
     };
 
@@ -224,6 +238,9 @@ export async function PATCH(req: NextRequest) {
       ...(tags !== undefined ? { tags } : {}),
       ...(sessionsCompleted !== undefined ? { sessionsCompleted } : {}),
       ...(totalSessions !== undefined ? { totalSessions } : {}),
+      ...(body.sessionDates !== undefined
+        ? { sessionDates: sanitizeSessionDates(body.sessionDates) ?? [] }
+        : {}),
       ...(clinicalProfile !== undefined ? { clinicalProfile } : {}),
     };
 

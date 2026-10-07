@@ -5,6 +5,7 @@ import { ScheduleConfig, getAvailableSlots } from "@/lib/availability";
 import {
   Booking,
   buildQuickWhatsAppText,
+  expandBookingSessions,
   BankConfig,
   MessageTemplatesConfig,
 } from "@/lib/bookings";
@@ -50,7 +51,7 @@ export function AgendaCalendarTab({
   // Bookings mapped by date string (YYYY-MM-DD)
   const bookingsByDate = useMemo(() => {
     const map = new Map<string, Booking[]>();
-    bookings.forEach((b) => {
+    bookings.flatMap(expandBookingSessions).forEach((b) => {
       if (!b.date) return;
       const list = map.get(b.date) || [];
       list.push(b);
@@ -354,7 +355,12 @@ export function AgendaCalendarTab({
                           <div className="flex items-center gap-1.5 pt-1 border-t border-border/60">
                             {onEditBooking && (
                               <button
-                                onClick={() => onEditBooking(bookingInSlot)}
+                                onClick={() =>
+                                  onEditBooking(
+                                    bookings.find((x) => x.id === bookingInSlot.id) ||
+                                      bookingInSlot,
+                                  )
+                                }
                                 className="px-2 py-1 rounded bg-sky-500/15 hover:bg-sky-500/25 text-sky-400 font-condensed font-bold uppercase text-[10px] transition-colors"
                               >
                                 Editar

@@ -1,6 +1,6 @@
 import { WHATSAPP_NUMBER } from "./constants";
 import { Plan } from "./plans";
-import type { Booking } from "./bookings";
+import { type Booking, expandBookingSessions } from "./bookings";
 
 export interface DaySchedule {
   dayIndex: number; // 0 = Domingo, 1 = Lunes, ..., 6 = Sábado
@@ -134,7 +134,7 @@ export function getBookedSlotsForDate(
   bookings: Booking[] = [],
 ): Set<string> {
   const occupied = new Set<string>();
-  bookings.forEach((b) => {
+  bookings.flatMap(expandBookingSessions).forEach((b) => {
     // Si el turno está confirmado o pendiente activo (no cancelado), ocupa el horario
     if (b.date === dateStr && b.status !== "cancelado" && b.time) {
       occupied.add(b.time.trim());

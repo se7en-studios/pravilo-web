@@ -199,13 +199,14 @@ export function MensajesTab({
   const [activeCategory, setActiveCategory] = useState<string>("todos");
   const [showSavedToast, setShowSavedToast] = useState(false);
 
-  // Sync if external messageTemplates change
+  // Cuando llegan las plantillas guardadas (servidor) o se guardan, el
+  // formulario pasa a mostrar esas. Antes `...prev` iba último y pisaba lo
+  // guardado con lo viejo que tenía el form, por eso al recargar "volvía".
   React.useEffect(() => {
-    setFormData((prev) => ({
+    setFormData({
       ...DEFAULT_MESSAGE_TEMPLATES,
       ...messageTemplates,
-      ...prev,
-    }));
+    });
   }, [messageTemplates]);
 
   const activeMeta = useMemo(() => {

@@ -56,9 +56,38 @@ export interface Booking {
   paymentStatus?: PaymentStatus;
   sessionsCompleted?: number;
   totalSessions?: number;
+  // Fechas de las sesiones 2..N de un pack (la 1ra es date/time). Una entrada
+  // vacía ("") todavía no está agendada.
+  sessionDates?: SessionDate[];
   tags?: string[];
   status: "pendiente" | "confirmado" | "realizado" | "cancelado";
   clinicalProfile?: StudentClinicalProfile;
+}
+
+export interface SessionDate {
+  date: string; // YYYY-MM-DD
+  time: string; // HH:mm
+}
+
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const TIME_RE = /^\d{1,2}:\d{2}$/;
+
+// Valida lo que llega del cliente: solo pares fecha/hora bien formados.
+export function sanitizeSessionDates(value: unknown): SessionDate[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  return value.slice(0, 24).map((s) => ({
+    date: typeof s?.date === "string" && ISO_DATE_RE.test(s.date) ? s.date : "",
+    time: typeof s?.time === "string" && TIME_RE.test(s.time.trim()) ? s.time.trim() : "",
+  }));
+}
+
+// Un turno de pack ocupa la agenda en cada una de sus sesiones agendadas:
+// devuelve el turno original más una copia (mismo id) por cada sesión extra.
+export function expandBookingSessions(b: Booking): Booking[] {
+  const extra = (b.sessionDates || [])
+    .filter((s) => s.date && s.time)
+    .map((s) => ({ ...b, date: s.date, time: s.time }));
+  return [b, ...extra];
 }
 
 export interface GiftCard {

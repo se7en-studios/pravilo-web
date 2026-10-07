@@ -1,4 +1,4 @@
-export const SITE_URL = "https://pravilo-web.vercel.app";
+export const SITE_URL = "https://www.pravilo.com.ar";
 
 export const WHATSAPP_NUMBER = "5492994567662";
 export const WHATSAPP_DEFAULT_MESSAGE =

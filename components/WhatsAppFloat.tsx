@@ -8,7 +8,8 @@ export default function WhatsAppFloat() {
   const pathname = usePathname();
   // ponytail: the public "chat with Juan" bubble has no business inside the
   // admin panel, where it overlaps toasts and action buttons.
-  const isAdmin = pathname?.startsWith("/admin");
+  // La confirmación de reserva ya tiene su propio botón grande de WhatsApp.
+  const hideOnRoute = pathname?.startsWith("/admin") || pathname?.startsWith("/reserva-confirmada");
   const [customPos, setCustomPos] = useState<{ x: number; y: number } | null>(
     null,
   );
@@ -97,7 +98,7 @@ export default function WhatsAppFloat() {
     }
   };
 
-  if (isAdmin) return null;
+  if (hideOnRoute) return null;
 
   return (
     <aside

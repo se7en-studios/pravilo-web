@@ -1283,16 +1283,15 @@ export default function AdminPage() {
   // LOGIN SCREEN
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen bg-background text-foreground flex flex-col justify-center items-center p-4 relative overflow-hidden">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(160,26,26,0.15)_0,transparent_70%)] pointer-events-none" />
+      <div className="theme-light min-h-screen bg-background text-foreground flex flex-col justify-center items-center p-4 relative overflow-hidden">
+        <div className="absolute inset-x-0 top-0 h-1.5 bg-accent pointer-events-none" />
 
-        <div className="w-full max-w-md bg-surface-raised border border-border rounded-3xl p-8 shadow-2xl relative z-10 space-y-6">
+        <div className="w-full max-w-md bg-surface-raised border border-border rounded-2xl p-8 shadow-2xl relative z-10 space-y-6">
           <div className="text-center space-y-2">
-            <div className="w-14 h-14 rounded-2xl bg-accent/20 border border-accent/40 flex items-center justify-center text-accent-text font-condensed font-black text-2xl mx-auto shadow-lg shadow-accent/20">
-              P
-            </div>
-            <h1 className="text-2xl font-black tracking-tight text-foreground font-condensed uppercase">
-              PRAVILO <span className="text-accent-text">ADMIN</span>
+            {/* eslint-disable-next-line @next/next/no-img-element -- logo del login, no necesita optimización */}
+            <img src="/images/logo-navy.png" alt="PRAVILO ARG" className="mx-auto h-12 w-auto" />
+            <h1 className="pt-2 text-3xl uppercase leading-none text-foreground [font-family:var(--font-anton)]">
+              Panel del estudio
             </h1>
             <p className="text-xs text-muted">
               Ingresá el PIN de seguridad del estudio
@@ -1339,7 +1338,7 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex flex-col">
+    <div className="theme-light min-h-screen bg-background text-foreground flex flex-col">
       {/* Header */}
       <AdminHeader
         activeTab={activeTab}

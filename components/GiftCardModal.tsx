@@ -43,30 +43,31 @@ export default function GiftCardModal() {
 
       {open &&
         createPortal(
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="theme-light fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-4">
             <div
-              className="fixed inset-0 bg-black/85 backdrop-blur-md"
+              className="fixed inset-0 bg-black/70 backdrop-blur-sm"
               onClick={() => setOpen(false)}
             />
-            <div className="relative z-10 w-full max-w-md rounded-3xl border border-border-highlight bg-surface p-6 shadow-[0_0_60px_-15px_rgba(160,26,26,0.5)] sm:p-8">
+            <div className="relative z-10 max-h-[92svh] w-full max-w-md overflow-y-auto overscroll-contain rounded-t-2xl border border-border bg-surface p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-2xl sm:rounded-2xl sm:p-8">
               <button
                 type="button"
                 onClick={() => setOpen(false)}
-                className="absolute top-5 right-5 flex h-8 w-8 items-center justify-center rounded-full border border-border bg-surface-raised text-muted hover:border-accent hover:text-foreground transition-colors"
+                aria-label="Cerrar"
+                className="absolute top-4 right-4 flex h-11 w-11 items-center justify-center rounded-full border border-border bg-surface-raised text-muted hover:border-accent hover:text-foreground transition-colors"
               >
                 &times;
               </button>
 
-              <div className="text-center">
-                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-accent/30 bg-accent/10 shadow-inner [&_svg]:h-7 [&_svg]:w-7">
-                  <BenefitIcon name="gift" />
-                </div>
-                <h3 className="mt-3 font-condensed text-2xl font-black text-foreground">
-                  Gift Card Digital PRAVILO
+              <div className="pr-12">
+                <span className="font-condensed text-xs font-bold uppercase tracking-wider text-accent-text">
+                  Voucher digital
+                </span>
+                <h3 className="mt-1 text-3xl uppercase leading-none text-foreground [font-family:var(--font-anton)]">
+                  Regalá una sesión
                 </h3>
-                <p className="mt-1 text-xs text-muted leading-relaxed">
-                  Regalá una experiencia transformadora de descompresión axial y
-                  movilidad profunda.
+                <p className="mt-2 text-sm text-muted leading-relaxed">
+                  Una sesión de PRAVILO con dedicatoria personalizada, para un
+                  cumpleaños o una fecha especial.
                 </p>
               </div>
 

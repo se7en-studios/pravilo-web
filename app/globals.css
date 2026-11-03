@@ -440,6 +440,62 @@ html.lenis body {
   }
 }
 
+/* ═══ Tema claro para pantallas de uso (reserva, voucher, panel) ═══════
+   Las pantallas viejas usan tokens (bg-surface, text-muted, …). Dentro de
+   .theme-light esos tokens pasan a blanco/navy y los colores de estado de
+   Tailwind se oscurecen para que se lean sobre fondo claro. Los títulos
+   chicos de interfaz van en Archivo: Anton queda para la landing. */
+.theme-light {
+  --background: #f3f5f8;
+  --surface: #ffffff;
+  --surface-raised: #ffffff;
+  --foreground: #121721;
+  --muted: #5b6474;
+  --accent-text: #a01a1a;
+  --accent-foreground: #ffffff;
+  --brand-blue-text: #005d9c;
+  --border: #e2e6ec;
+  --border-highlight: #cdd3dc;
+  --font-display: var(--font-archivo);
+  --color-emerald-200: var(--color-emerald-800);
+  --color-emerald-300: var(--color-emerald-700);
+  --color-emerald-400: var(--color-emerald-700);
+  --color-amber-200: var(--color-amber-800);
+  --color-amber-300: var(--color-amber-700);
+  --color-amber-400: var(--color-amber-700);
+  --color-rose-200: var(--color-rose-800);
+  --color-rose-300: var(--color-rose-700);
+  --color-rose-400: var(--color-rose-700);
+  --color-blue-300: var(--color-blue-700);
+  --color-blue-400: var(--color-blue-700);
+  --color-sky-300: var(--color-sky-700);
+  --color-sky-400: var(--color-sky-700);
+  --color-violet-300: var(--color-violet-700);
+  --color-violet-400: var(--color-violet-700);
+  --color-purple-300: var(--color-purple-700);
+  --color-purple-400: var(--color-purple-700);
+  --color-orange-300: var(--color-orange-700);
+  --color-orange-400: var(--color-orange-700);
+  --color-yellow-300: var(--color-yellow-700);
+  --color-yellow-400: var(--color-yellow-700);
+  --color-green-300: var(--color-green-700);
+  --color-green-400: var(--color-green-700);
+  --color-red-300: var(--color-red-700);
+  --color-red-400: var(--color-red-700);
+  color: var(--foreground);
+  font-family: var(--font-body);
+}
+
+.theme-light .font-condensed {
+  letter-spacing: 0.01em;
+}
+
+/* Sombras más suaves: las del tema oscuro quedan pesadas sobre blanco */
+.theme-light .shadow-2xl,
+.theme-light .shadow-xl {
+  box-shadow: 0 24px 60px -30px rgba(18, 23, 33, 0.35);
+}
+
 /* Bandas curvas (de las piezas de Instagram): SVG con trazo grueso */
 .band path {
   fill: none;

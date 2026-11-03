@@ -245,12 +245,12 @@ export function TurnosTab({
             )}
           </div>
 
-          {/* Status & Payment Selectors */}
-          <div className="flex items-center gap-2">
+          {/* Status & Payment Selectors: dos columnas en el celu para que no se corten */}
+          <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:items-center">
             <select
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}
-              className="px-2.5 py-1 rounded-lg bg-surface-raised border border-border text-xs font-condensed uppercase tracking-wide text-foreground focus:border-accent focus:outline-none"
+              className="w-full min-w-0 px-2.5 py-2 rounded-lg bg-surface-raised border border-border text-xs font-condensed uppercase tracking-wide text-foreground focus:border-accent focus:outline-none sm:w-auto sm:py-1"
             >
               <option value="todos">Estado: Todos</option>
               <option value="pendiente">Pendientes</option>
@@ -262,7 +262,7 @@ export function TurnosTab({
             <select
               value={filterPayment}
               onChange={(e) => setFilterPayment(e.target.value)}
-              className="px-2.5 py-1 rounded-lg bg-surface-raised border border-border text-xs font-condensed uppercase tracking-wide text-foreground focus:border-accent focus:outline-none"
+              className="w-full min-w-0 px-2.5 py-2 rounded-lg bg-surface-raised border border-border text-xs font-condensed uppercase tracking-wide text-foreground focus:border-accent focus:outline-none sm:w-auto sm:py-1"
             >
               <option value="todos">Pago: Todos</option>
               <option value="pendiente">Pago Pendiente</option>

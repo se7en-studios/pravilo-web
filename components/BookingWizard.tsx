@@ -316,7 +316,7 @@ export default function BookingWizard({
       {open &&
         mounted &&
         createPortal(
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="theme-light fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-4">
             {/* Fondo oscuro backdrop */}
             <div
               className="fixed inset-0 bg-black/80 backdrop-blur-sm transition-opacity"
@@ -327,14 +327,14 @@ export default function BookingWizard({
             <div
               role="dialog"
               aria-modal="true"
-              className="relative z-10 max-h-[92vh] w-full max-w-xl overflow-y-auto rounded-3xl border border-border bg-surface p-6 shadow-2xl sm:p-8"
+              className="relative z-10 max-h-[92svh] w-full max-w-xl overflow-y-auto overscroll-contain rounded-t-2xl border border-border bg-surface p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-2xl sm:rounded-2xl sm:p-8"
             >
               {/* Botón cerrar */}
               <button
                 type="button"
                 onClick={handleClose}
                 aria-label="Cerrar ventana"
-                className="absolute top-5 right-5 flex h-9 w-9 items-center justify-center rounded-full border border-border bg-background text-lg text-muted transition-colors hover:border-accent hover:text-foreground"
+                className="absolute top-4 right-4 flex h-11 w-11 items-center justify-center rounded-full border border-border bg-background text-lg text-muted transition-colors hover:border-accent hover:text-foreground"
               >
                 &times;
               </button>
@@ -345,7 +345,7 @@ export default function BookingWizard({
                   <span className="font-condensed text-xs font-bold uppercase tracking-wider text-accent-text">
                     Paso {step} de 4
                   </span>
-                  <h2 className="font-condensed text-2xl font-extrabold text-foreground">
+                  <h2 className="mt-1 text-3xl uppercase leading-none text-foreground [font-family:var(--font-anton)]">
                     {step === 1 && "Elegí tu Plan"}
                     {step === 2 && "Seleccioná la Fecha"}
                     {step === 3 && "Elegí el Horario"}
@@ -391,9 +391,9 @@ export default function BookingWizard({
                           onClick={() =>
                             setSelectedPlan({ ...p, price: displayPrice })
                           }
-                          className={`group flex w-full items-center justify-between rounded-2xl border p-4 text-left transition-all duration-200 ${
+                          className={`group flex w-full flex-col items-start gap-2 rounded-xl border p-4 text-left transition-all duration-200 sm:flex-row sm:items-center sm:justify-between ${
                             isSelected
-                              ? "border-accent bg-accent/15 shadow-[0_0_30px_-8px_rgba(160,26,26,0.6)] scale-[1.01]"
+                              ? "border-accent bg-accent/10 ring-1 ring-accent"
                               : "border-border bg-surface-raised/70 hover:border-border-highlight hover:bg-surface-raised"
                           }`}
                         >
@@ -410,7 +410,7 @@ export default function BookingWizard({
                             </div>
                             <p className="mt-1 text-xs text-muted leading-relaxed">{p.desc}</p>
                           </div>
-                          <span className="font-condensed text-2xl font-black text-accent-text ml-3 shrink-0">
+                          <span className="shrink-0 text-3xl leading-none text-accent-text [font-family:var(--font-anton)] sm:ml-3">
                             {displayPrice}
                           </span>
                         </button>

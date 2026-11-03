@@ -1,30 +1,34 @@
 import Link from "next/link";
+import Image from "next/image";
 
 export default function NotFound() {
   return (
-    <main className="grain relative flex min-h-screen flex-col items-center justify-center px-6 py-24 text-center bg-background text-foreground overflow-hidden">
-      <div
+    <main className="relative flex min-h-screen flex-col overflow-hidden bg-accent px-5 py-6 text-white sm:px-6">
+      <Image
+        src="/images/pravilo-prioridad-inversion-total.jpg"
+        alt=""
         aria-hidden
-        className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-[450px] w-[450px] rounded-full bg-accent/20 blur-[120px]"
+        fill
+        sizes="100vw"
+        className="object-cover opacity-40 mix-blend-multiply"
       />
-
-      <div className="relative z-10 max-w-md rounded-3xl border border-border-highlight bg-surface-raised/90 p-8 shadow-2xl backdrop-blur-xl sm:p-10">
-        <span className="font-condensed text-7xl font-black text-accent-text sm:text-8xl">
-          404
-        </span>
-        <h1 className="mt-2 font-condensed text-2xl font-black uppercase tracking-tight text-foreground sm:text-3xl">
-          Página no encontrada
-        </h1>
-        <p className="mt-3 text-xs sm:text-sm text-muted leading-relaxed">
-          La sección que buscás no existe o ha sido movida. Regresá al inicio para reservar tu turno de PRAVILO.
-        </p>
-
-        <div className="mt-8">
-          <Link
-            href="/"
-            className="btn-shiny inline-flex w-full items-center justify-center rounded-full bg-accent px-6 py-3 font-condensed text-sm font-bold uppercase tracking-wider text-accent-foreground shadow-lg transition-all hover:scale-105"
-          >
-            ← Volver a la página principal
+      <div className="relative mx-auto flex w-full max-w-5xl flex-1 flex-col">
+        <Link href="/" className="inline-flex min-h-11 items-center" aria-label="Volver al inicio">
+          <Image src="/images/logo-transparent.png" alt="PRAVILO ARG" width={900} height={176} className="h-7 w-auto" />
+        </Link>
+        <div className="my-auto py-16">
+          <p className="label text-white/80">Error 404</p>
+          <h1 className="display mt-3 text-[24vw] sm:text-[11rem]">
+            Página
+            <br />
+            dada vuelta
+          </h1>
+          <p className="mt-5 max-w-md text-lg font-medium text-white/90">
+            Esta página no existe o se movió. Volvé al inicio y reservá tu
+            sesión desde ahí.
+          </p>
+          <Link href="/" className="btn btn-white mt-8">
+            ← Volver al inicio
           </Link>
         </div>
       </div>

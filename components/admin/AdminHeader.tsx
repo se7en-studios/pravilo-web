@@ -191,9 +191,8 @@ export function AdminHeader({
               className="flex items-center gap-2.5 group transition-transform active:scale-95 shrink-0"
               title="Volver a la landing pública"
             >
-              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-accent/20 border border-accent/40 flex items-center justify-center text-accent-text font-condensed font-black text-lg tracking-wider shadow-lg shadow-accent/15 group-hover:border-accent group-hover:shadow-accent/30 transition-all">
-                P
-              </div>
+              {/* eslint-disable-next-line @next/next/no-img-element -- logo chico del panel, no necesita optimización */}
+              <img src="/images/isotipo-color.png" alt="" className="h-9 w-auto sm:h-10" />
               <div className="hidden sm:block text-left">
                 <span className="text-sm font-black tracking-wide text-foreground flex items-center gap-1.5 font-condensed uppercase">
                   PRAVILO <span className="text-accent-text">ADMIN</span>

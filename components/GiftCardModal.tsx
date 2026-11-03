@@ -35,10 +35,10 @@ export default function GiftCardModal() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="btn-shiny inline-flex items-center gap-2.5 rounded-full border border-accent/50 bg-gradient-to-r from-accent/20 to-accent/10 px-6 py-3 font-condensed text-sm font-bold text-accent-foreground shadow-md transition-all hover:border-accent hover:bg-accent hover:text-accent-foreground hover:scale-105"
+        className="btn btn-line px-5 py-3 text-xs text-ink"
       >
         <BenefitIcon name="gift" className="h-4 w-4" />
-        <span>Regalar Voucher Digital PRAVILO</span>
+        <span>Regalar una sesión</span>
       </button>
 
       {open &&

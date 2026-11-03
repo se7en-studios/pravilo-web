@@ -1,19 +1,19 @@
 import type { Metadata } from "next";
-import { Barlow_Condensed, Barlow } from "next/font/google";
+import { Anton, Archivo } from "next/font/google";
 import "./globals.css";
 import { SITE_URL } from "@/lib/constants";
 import GoogleAnalytics from "@/components/GoogleAnalytics";
 import WhatsAppFloat from "@/components/WhatsAppFloat";
 
-const condensed = Barlow_Condensed({
-  variable: "--font-condensed",
-  weight: ["500", "600", "700", "800"],
+// Anton: condensada pesada de afiche deportivo, solo para títulos.
+// Archivo: grotesca legible para todo el texto corrido.
+const anton = Anton({
+  variable: "--font-anton",
+  weight: "400",
   subsets: ["latin"],
 });
-
-const body = Barlow({
-  variable: "--font-body",
-  weight: ["400", "500", "600"],
+const archivo = Archivo({
+  variable: "--font-archivo",
   subsets: ["latin"],
 });
 
@@ -96,7 +96,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="es-AR"
-      className={`${condensed.variable} ${body.variable} h-full antialiased`}
+      className={`${anton.variable} ${archivo.variable} h-full antialiased`}
     >
       <head>
         <script

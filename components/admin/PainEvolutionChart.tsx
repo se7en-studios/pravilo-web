@@ -138,7 +138,7 @@ export function PainEvolutionChart({
                 {/* Pre-session point */}
                 <circle cx={x} cy={yBefore} r="4" fill="#f05252" />
                 {/* Post-session point */}
-                <circle cx={x} cy={yAfter} r="5" fill="#10b981" stroke="#0d0b0a" strokeWidth="1.5" />
+                <circle cx={x} cy={yAfter} r="5" fill="#10b981" stroke="#121721" strokeWidth="1.5" />
 
                 {/* Session label on bottom */}
                 <text

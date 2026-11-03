@@ -44,7 +44,7 @@ export function ConsentSignatureModal({
       canvas.height = rect.height * ratio;
       ctx.scale(ratio, ratio);
 
-      ctx.strokeStyle = "#f6f1ea";
+      ctx.strokeStyle = "#f2f4f7";
       ctx.lineWidth = 2.5;
       ctx.lineCap = "round";
       ctx.lineJoin = "round";

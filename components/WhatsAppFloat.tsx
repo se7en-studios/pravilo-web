@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { usePathname } from "next/navigation";
 import { whatsappLink } from "@/lib/constants";
 
@@ -13,6 +13,19 @@ export default function WhatsAppFloat() {
     null,
   );
   const [isDragging, setIsDragging] = useState(false);
+  // En la home el hero ya tiene su botón de WhatsApp: la burbuja aparece
+  // recién al bajar, así no tapa los botones del primer pantallazo.
+  const isHome = pathname === "/";
+  const [pastHero, setPastHero] = useState(false);
+
+  useEffect(() => {
+    if (!isHome) return;
+    const onScroll = () => setPastHero(window.scrollY > window.innerHeight * 0.75);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, [isHome]);
+  const hidden = isHome && !pastHero && !customPos;
   const dragStartRef = useRef<{
     startX: number;
     startY: number;
@@ -111,15 +124,15 @@ export default function WhatsAppFloat() {
               touchAction: "none",
             }
       }
-      className={`flex items-center gap-2.5 select-none cursor-grab active:cursor-grabbing transition-transform duration-150 ${
-        isDragging ? "scale-105 opacity-90" : "hover:scale-105"
-      }`}
+      aria-hidden={hidden}
+      className={`flex items-center gap-2.5 select-none cursor-grab active:cursor-grabbing transition-[transform,opacity] duration-300 ${
+        hidden ? "pointer-events-none translate-y-6 opacity-0" : ""
+      } ${isDragging ? "scale-105 opacity-90" : "hover:scale-105"}`}
       title="Mantené presionado para mover o tocá para chatear por WhatsApp"
     >
       {/* Tooltip / Badge sutil solo en desktop */}
       <span className="hidden sm:inline-flex items-center gap-1.5 rounded-full border border-border-highlight bg-surface-raised/95 px-3.5 py-1.5 font-condensed text-xs font-bold uppercase tracking-wider text-foreground shadow-xl backdrop-blur-md pointer-events-none">
-        <span className="h-2 w-2 rounded-full bg-emerald-400 animate-ping" />
-        <span>Juan en línea</span>
+        <span>Escribile a Juan</span>
       </span>
 
       {/* Botón Circular Verde WhatsApp */}

@@ -8,7 +8,7 @@ export default function manifest(): MetadataRoute.Manifest {
       "Primer centro de descompresión vertebral, tracción y reeducación miofascial con el método Pravilo en Plottier, Neuquén.",
     start_url: "/",
     display: "standalone",
-    background_color: "#0d0b0a",
+    background_color: "#121721",
     theme_color: "#a01a1a",
     icons: [
       {

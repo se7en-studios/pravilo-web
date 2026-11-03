@@ -1,19 +1,29 @@
 @import "tailwindcss";
 
+/* Paleta medida sobre logo-full-color.png: navy #121721, rojo #A01A1A, azul "ARG" #0070BB */
 :root {
-  --background: #0d0b0a;
-  --surface: #171310;
-  --surface-raised: #1f1a16;
-  --foreground: #f6f1ea;
-  --muted: #a3978c;
+  --background: #121721;
+  --surface: #19202d;
+  --surface-raised: #212a3a;
+  --foreground: #f2f4f7;
+  --muted: #a3adbd;
   --accent: #a01a1a;
-  --accent-glow: #e33030;
-  --accent-foreground: #fcf8f2;
-  --accent-text: #f05252;
-  --gold: #f59e0b;
-  --gold-glow: #fbbf24;
-  --border: #28201a;
-  --border-highlight: #3d3027;
+  --accent-glow: #c42525;
+  --accent-foreground: #ffffff;
+  --accent-text: #ef5a5a;
+  --brand-blue: #0070bb;
+  --brand-blue-text: #4fa6e6;
+  --border: #2a3446;
+  --border-highlight: #3a4760;
+  /* Fondo claro "estudio": las paredes blancas del lugar, un toque frío */
+  --paper: #eef1f5;
+  --paper-deep: #e1e6ed;
+  --ink: #121721;
+  --ink-soft: #4a5466;
+  --font-display: var(--font-anton);
+  --font-body: var(--font-archivo);
+  /* Una sola curva para todo el movimiento */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 @theme inline {
@@ -26,15 +36,23 @@
   --color-accent-glow: var(--accent-glow);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent-text: var(--accent-text);
-  --color-gold: var(--gold);
-  --color-gold-glow: var(--gold-glow);
+  --color-brand-blue: var(--brand-blue);
+  --color-brand-blue-text: var(--brand-blue-text);
   --color-border: var(--border);
   --color-border-highlight: var(--border-highlight);
-  --font-condensed: var(--font-condensed);
+  --color-paper: var(--paper);
+  --color-paper-deep: var(--paper-deep);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  /* "condensed" queda como nombre de la utilidad de títulos para no tocar
+     los componentes del panel y la reserva. */
+  --font-condensed: var(--font-display);
   --font-sans: var(--font-body);
 }
 
 html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
   scroll-behavior: smooth;
   scroll-padding-top: 80px;
   -webkit-font-smoothing: antialiased;
@@ -68,7 +86,24 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-body);
-  overflow-x: hidden;
+  /* clip en vez de hidden: no rompe position: sticky */
+  overflow-x: clip;
+  -webkit-tap-highlight-color: transparent;
+}
+
+a,
+button,
+summary {
+  touch-action: manipulation;
+}
+
+/* iOS hace zoom al enfocar campos con letra menor a 16px */
+@media (max-width: 767px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
 }
 
 h1,
@@ -76,8 +111,7 @@ h2,
 h3,
 h4,
 .font-condensed {
-  font-family: var(--font-condensed);
-  letter-spacing: -0.015em;
+  font-family: var(--font-display);
 }
 
 /* Grano cinematográfico sutil sobre fondos oscuros */
@@ -97,38 +131,37 @@ h4,
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
-/* Etiqueta editorial con línea carmesí */
+/* Etiqueta como el "ARG" del logo: texto azul con filete azul */
 .eyebrow {
   display: inline-flex;
   align-items: center;
   gap: 0.6em;
-  font-family: var(--font-condensed);
-  font-weight: 700;
-  font-size: 0.8rem;
-  letter-spacing: 0.16em;
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 0.78rem;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--accent-text);
+  color: var(--brand-blue-text);
 }
 
 .eyebrow::before {
   content: "";
   display: block;
-  width: 1.5rem;
+  width: 1.75rem;
   height: 2px;
-  background: linear-gradient(90deg, var(--accent), var(--accent-glow));
-  border-radius: 2px;
+  background: var(--brand-blue);
 }
 
 /* Glassmorphism utilities */
 .glass-panel {
-  background: rgba(23, 19, 16, 0.7);
+  background: rgba(18, 23, 33, 0.7);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border: 1px solid rgba(255, 255, 255, 0.07);
 }
 
 .glass-card {
-  background: rgba(23, 19, 16, 0.6);
+  background: rgba(18, 23, 33, 0.6);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border: 1px solid var(--border);
@@ -144,12 +177,6 @@ h4,
 /* Gradientes de texto */
 .text-gradient-accent {
   background: linear-gradient(135deg, #ffffff 10%, var(--accent-text) 90%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-
-.text-gradient-gold {
-  background: linear-gradient(135deg, #fff2cc 0%, var(--gold-glow) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
@@ -293,6 +320,197 @@ h4,
     opacity: 1;
     animation: none;
   }
+}
+
+/* ═══ Landing deportiva ═══════════════════════════════════════════════
+   Blanco de base, rojo protagonista, navy solo para texto y pie. Títulos en
+   Anton (afiche deportivo). El recurso gráfico son las bandas curvas de las
+   piezas de Instagram de PRAVILO (.band). GSAP maneja el movimiento. */
+
+html.lenis,
+html.lenis body {
+  height: auto;
+}
+
+.lenis.lenis-smooth {
+  scroll-behavior: auto !important;
+}
+
+.lenis.lenis-stopped {
+  overflow: hidden;
+}
+
+.paper {
+  background: #fff;
+  color: var(--ink);
+}
+
+/* En una capa para que las utilidades de Tailwind puedan pisarlos */
+@layer components {
+  .display {
+    font-family: var(--font-display);
+    font-weight: 400;
+    text-transform: uppercase;
+    line-height: 0.9;
+    letter-spacing: 0.005em;
+  }
+
+  .label {
+    font-family: var(--font-body);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.6rem;
+    border-radius: 0.375rem;
+    padding: 1.05rem 1.6rem;
+    font-family: var(--font-body);
+    font-weight: 800;
+    font-size: 0.9rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    transition:
+      background-color 0.25s var(--ease-out),
+      color 0.25s var(--ease-out),
+      border-color 0.25s var(--ease-out),
+      transform 0.25s var(--ease-out);
+  }
+
+  .btn:hover {
+    transform: translateY(-2px);
+  }
+
+  .btn:active {
+    transform: translateY(0) scale(0.98);
+  }
+
+  .btn-red {
+    background: var(--accent);
+    color: #fff;
+  }
+
+  .btn-red:hover {
+    background: var(--accent-glow);
+  }
+
+  .btn-white {
+    background: #fff;
+    color: var(--ink);
+  }
+
+  .btn-white:hover {
+    background: var(--paper);
+  }
+
+  .btn-line {
+    border: 2px solid currentColor;
+  }
+
+  .btn .arrow {
+    display: inline-block;
+    transition: transform 0.25s var(--ease-out);
+  }
+
+  .btn:hover .arrow {
+    transform: translateX(4px);
+  }
+
+  /* Palabra resaltada con bloque rojo detrás, como un sticker */
+  .hl {
+    position: relative;
+    display: inline-block;
+    padding: 0.02em 0.12em 0;
+    z-index: 0;
+  }
+
+  .hl::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background: var(--accent);
+    transform-origin: left center;
+    transform: scaleX(var(--hl, 1));
+  }
+}
+
+/* Bandas curvas (de las piezas de Instagram): SVG con trazo grueso */
+.band path {
+  fill: none;
+  stroke-linecap: round;
+}
+
+/* Máscara de líneas de SplitText */
+/* Anton tiene acentos altos (Á, Í): la máscara deja aire arriba */
+.split-mask,
+.line-mask {
+  overflow: clip;
+  padding-top: 0.14em;
+  margin-top: -0.14em;
+  padding-bottom: 0.04em;
+  margin-bottom: -0.04em;
+}
+
+/* Marquee por velocidad */
+.vel-track {
+  display: flex;
+  width: max-content;
+  will-change: transform;
+}
+
+.text-outline {
+  color: transparent;
+  -webkit-text-stroke: 2px currentColor;
+}
+
+/* FAQ con <details> */
+.faq summary {
+  list-style: none;
+  cursor: pointer;
+}
+
+.faq summary::-webkit-details-marker {
+  display: none;
+}
+
+.faq summary .plus {
+  transition: transform 0.4s var(--ease-out);
+}
+
+.faq details[open] summary .plus {
+  transform: rotate(45deg);
+}
+
+.faq details::details-content {
+  block-size: 0;
+  overflow: clip;
+  transition:
+    block-size 0.5s var(--ease-out),
+    content-visibility 0.5s allow-discrete;
+}
+
+.faq details[open]::details-content {
+  block-size: auto;
+}
+
+@supports (interpolate-size: allow-keywords) {
+  :root {
+    interpolate-size: allow-keywords;
+  }
+}
+
+.no-scrollbar {
+  scrollbar-width: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
 }
 
 /* Aura / glow de pulso sutil */
